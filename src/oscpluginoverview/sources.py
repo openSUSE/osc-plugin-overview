@@ -4,6 +4,40 @@ import os
 
 # if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :  
 
+def evalRepo(repos, expr):
+    """
+    evaluates a repo from a $x expression
+    """    
+    import re
+    repo = None
+    matches = re.findall('\$(\d+)', expr)
+    if len(matches) > 0:
+        from string import atoi
+        column = atoi(matches[0])
+        if len(repos) < column:
+            print "Can't use repo #%d package list, not enough repos" % column
+            exit(1)
+        repo = repos[column-1]
+    else:
+        # if not a expression evaluate it as a string
+        if expr in repos:
+            return expr
+    return repo
+
+def evalPackages(repos, data, pkgopt):
+    repo = evalRepo(repos, pkgopt)
+    packages = []
+    if repo == None:
+        # if no column specified, a package list
+        # must be splited
+        packages = pkgopt.split(',')
+    else:
+        packages = data[repo].packages()
+    if len(packages) == 0:
+        print "No packages defined for $s" % view
+        exit(1)
+    return packages
+
 class PackageSource:
     """
     Represents one repository of packages, for example
@@ -79,11 +113,13 @@ class BuildServicePendingRequestsSource(PackageSource):
             import osc.core
             # we use empty package to get all
             requests =  osc.core.get_submit_request_list(self.service, self.project, '', req_state=('new'))
+            srlist = BuildServicePendingRequestsSource._srlist[key]
+            pkglist = BuildServicePendingRequestsSource._packagelist[key]
             for req in requests:
-                BuildServicePendingRequestsSource._srlist[key].append(req)
+                srlist.append(req)
                 # cache the packages only too
-                BuildServicePendingRequestsSource._packagelist[key].append(req.src_package)
-                
+                pkglist.append(req.src_package)
+        
         return BuildServicePendingRequestsSource._packagelist[key]
         
     def version(self, package):
@@ -96,14 +132,16 @@ class BuildServicePendingRequestsSource(PackageSource):
         #import osc.conf
         # just to make sure the info gets cached
         self.packages()
-        for req in BuildServicePendingRequestsSource._srlist:
+        key = self.service + "/" + self.project
+        for req in BuildServicePendingRequestsSource._srlist[key]:
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
                 u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'])
                 try:
                     f = osc.core.http_GET(u)
                 except urllib2.HTTPError, e:
-                    raise self.Error("Cannot get package info from: %s".format(u))
+                    print "Cannot get package info from: %s" % u
+                    exit(1)
         
                 root = ET.parse(f).getroot()
         
@@ -113,10 +151,11 @@ class BuildServicePendingRequestsSource(PackageSource):
                 version = 0
                 for node in revisions:
                     md5 = node.find('srcmd5').text
-                    print md5
-                    print req.src_md5
+                    #print md5
+                    #print req.src_md5
 
                     if md5 == req.src_md5:
+                        print "found %s" % u
                         version = node.find('version').text
                         return version
         return None
@@ -153,7 +192,7 @@ class GemSource(PackageSource):
                 raise Exception('Cannot get local index')
             except Exception:
                 #print e
-                raise Exception("Unexpected error: {0}".format(sys.exc_info()[0]))
+                raise Exception("Unexpected error: %s" % sys.exc_info()[0])
         # return the cache entry
         return GemSource._gemlist[self.gemserver].keys()
     

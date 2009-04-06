@@ -52,29 +52,7 @@ def _overview(self, group):
 
             if config.has_option(view, 'packages'):
                 pkgopt = config.get(view,'packages')
-                # first look if the packages is specified
-                # as the package list from one of the repos
-                # using $x
-                import re
-                matches = re.findall('\$(\d+)', pkgopt)
-                if len(matches) > 0:
-                    from string import atoi
-                    column = atoi(matches[0])
-                    if len(repos) < column:
-                        print "Can't use repo #%d package list, not enough repos" % column
-                        exit(1)
-                    # get the package list
-                    #print "using column %d as packages" % column
-                    packages = data[repos[column-1]].packages()
-                    #print ','.join(packages)
-                else:
-                    # if no column specified, a package list
-                    # must be splited
-                    packages = pkgopt.split(',')
-                    if len(packages) == 0:
-                        print "No packages defined for $s" % view
-                        break
-                    
+                packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
             header = []
             #header.append(" ")
             header.append("package")
