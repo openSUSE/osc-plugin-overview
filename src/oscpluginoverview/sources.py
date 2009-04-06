@@ -73,7 +73,7 @@ class BuildServicePendingRequestsSource(PackageSource):
 
     def packages(self):
         key = self.service + "/" + self.project
-        if BuildServicePendingRequestsSource._packagelist.has_key(key):
+        if not BuildServicePendingRequestsSource._packagelist.has_key(key):
             BuildServicePendingRequestsSource._packagelist[key] = []
             BuildServicePendingRequestsSource._srlist[key] = []
             import osc.core
