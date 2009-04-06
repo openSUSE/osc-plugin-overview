@@ -14,18 +14,19 @@ class PackageSource:
 class BuildServiceSource(PackageSource):
 
     # cache for package list
-    _packagelist = None
+    # service/project -> list
+    _packagelist = {}
     
     def __init__(self, service, project):
         self.service = service
         self.project = project
         
-
     def packages(self):
-        if BuildServiceSource._packagelist == None:            
+        key = self.service + "/" + self.project
+        if not BuildServiceSource._packagelist.has_key(key):      
             import osc.core
-            BuildServiceSource._packagelist = osc.core.meta_get_packagelist(self.service, self.project)
-        return BuildServiceSource._packagelist
+            BuildServiceSource._packagelist[key] = osc.core.meta_get_packagelist(self.service, self.project)
+        return BuildServiceSource._packagelist[key]
     
     def version(self, package):
         """
@@ -44,7 +45,8 @@ class BuildServiceSource(PackageSource):
         try:
             f = osc.core.http_GET(u)
         except urllib2.HTTPError, e:
-            raise self.Error("Cannot get package info from: %s".format(u))
+            print "Cannot get package info from: %s" % u
+            exit(1)
         
         root = ET.parse(f).getroot()
         
@@ -61,26 +63,28 @@ class BuildServiceSource(PackageSource):
 #get_submit_request_list(apiurl, project, package, req_state=('new')):
 
 class BuildServicePendingRequestsSource(PackageSource):
-    _packagelist = None
-    _srlist = None
+    # cache service/repo -> list
+    _packagelist = {}
+    _srlist = {}
     
     def __init__(self, service, project):
         self.service = service
         self.project = project
 
     def packages(self):
-        if BuildServicePendingRequestsSource._packagelist == None:
-            BuildServicePendingRequestsSource._packagelist = []
-            BuildServicePendingRequestsSource._srlist = []
+        key = self.service + "/" + self.project
+        if BuildServicePendingRequestsSource._packagelist.has_key(key):
+            BuildServicePendingRequestsSource._packagelist[key] = []
+            BuildServicePendingRequestsSource._srlist[key] = []
             import osc.core
             # we use empty package to get all
             requests =  osc.core.get_submit_request_list(self.service, self.project, '', req_state=('new'))
             for req in requests:
-                BuildServicePendingRequestsSource._srlist.append(req)
+                BuildServicePendingRequestsSource._srlist[key].append(req)
                 # cache the packages only too
-                BuildServicePendingRequestsSource._packagelist.append(req.src_package)
+                BuildServicePendingRequestsSource._packagelist[key].append(req.src_package)
                 
-        return BuildServicePendingRequestsSource._packagelist
+        return BuildServicePendingRequestsSource._packagelist[key]
         
     def version(self, package):
         try:
@@ -168,6 +172,7 @@ def createSourceFromUrl(url):
         kind, name = url.split('://')
     except ValueError:
         print "invalid origin format: %s" % url
+        exit(1)
         
     if kind == "obs" or kind == "ibs" or kind == "ibssr" or kind == "obssr":
         # TODO automatically use internal if ibs or ibssr
