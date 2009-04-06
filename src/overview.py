@@ -117,16 +117,16 @@ def do_overview(self, subcmd, opts, *args):
 
     sys.path.append(os.path.expanduser('~/.osc-plugins'))
     
-    pyverstr = sys.version.split()[0]
-    pyver = pyverstr.split(".")
-    if map(int, pyver) < [2, 6]:
-        error = "Sorry, osc ruby requires Python 2.6, you have {0}".format(pyverstr)
-        print(error)
-        exit(1)
+    #pyverstr = sys.version.split()[0]
+    #pyver = pyverstr.split(".")
+    #if map(int, pyver) < [2, 6]:
+    #    error = "Sorry, osc ruby requires Python 2.6, you have {0}".format(pyverstr)
+    #    print(error)
+    #    exit(1)
     
-    """${cmd_name}: Various commands to ease software management maintenance.
+    """${cmd_name}: Various commands to ease maintenance.
 
-    "todo" (or "t") will list the packages that need some action.
+    "overview" (or "o") will list the packages that need some action.
 
     Usage:
         osc overview group
@@ -152,12 +152,18 @@ def do_overview(self, subcmd, opts, *args):
     if len(args) - 1 > max_args:
         raise oscerr.WrongArgs('Too many arguments.')
 
-    from oscpluginoverview.sources import GemSource, BuildServiceSource
-    gems = GemSource("foo")
-    print gems.packages()
-    print gems.version('rubygem-hpricot')
-    obs = BuildServiceSource('http://api.opensuse.org', 'zypp:Head')
-    print obs.packages()
-    print obs.version('libzypp')
+    from oscpluginoverview.sources import GemSource, BuildServiceSource, BuildServicePendingRequestsSource
+    
+    #gems = GemSource("foo")
+    #print gems.packages()
+    #print gems.version('rubygem-hpricot')
+    #obs = BuildServiceSource('http://api.opensuse.org', 'zypp:Head')
+    #print obs.packages()
+    #print obs.version('libzypp')
+
+    #reqs = BuildServicePendingRequestsSource('http://api.opensuse.org', 'openSUSE:Factory')
+    #print reqs.packages()
+    #print reqs.version("patch")
+
     self._overview(cmd)
 
