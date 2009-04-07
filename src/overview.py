@@ -68,17 +68,43 @@ def _overview(self, group):
 
                 # now we see this package in various repos
                 changes = []
-                
+
+                # save versions in a map repo -> version, to use in filters
+                versions = {}
                 for repo in repos:
                     if package  in data[repo].packages():
                         version = data[repo].version(package)
+                        versions[repo] = version
                         row.append(version)
                     else:
                         row.append("-")
-                # append the resulting row to the table
+                # append the resulting row to the table                
                 rows.append(row)
-            # append all rows to the table
-            table.add_rows(rows)
+            # append all rows to the table if filter allows it
+
+            # older filter, show the row _only_ if specified repo is
+            # older than any other column
+            showrow = True
+            if config.has_option(view, 'filter.older'):
+                r = oscpluginoverview.sources.evalRepo(repos, config.get(view,'filter.older'))
+                if r == None:
+                    print "Unknown repo %s as older filter" % r
+                    exit(1)
+                else:
+                    showrow = True
+                    baseversion = versions[r]
+                    import rpm
+                    for k,v in versions.items():
+                        if (rpm.labelCompare((None, v, '1'), (None, baseversion, '1')) == 1) and k != r:
+                            print r
+                            print baseversion
+                            print k
+                            print v
+                            
+                            showrow = True
+            #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
+            if showrow:
+                table.add_rows(rows)
             print "** %s ** " % view
             print table.draw()
             print
