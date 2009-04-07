@@ -78,33 +78,34 @@ def _overview(self, group):
                         row.append(version)
                     else:
                         row.append("-")
-                # append the resulting row to the table                
-                rows.append(row)
-            # append all rows to the table if filter allows it
 
-            # older filter, show the row _only_ if specified repo is
-            # older than any other column
-            showrow = True
-            if config.has_option(view, 'filter.older'):
-                r = oscpluginoverview.sources.evalRepo(repos, config.get(view,'filter.older'))
-                if r == None:
-                    print "Unknown repo %s as older filter" % r
-                    exit(1)
-                else:
-                    showrow = True
-                    baseversion = versions[r]
-                    import rpm
-                    for k,v in versions.items():
-                        if (rpm.labelCompare((None, v, '1'), (None, baseversion, '1')) == 1) and k != r:
-                            print r
-                            print baseversion
-                            print k
-                            print v
-                            
-                            showrow = True
+                # older filter, show the row _only_ if specified repo is
+                # older than any other column
+                showrow = True
+                if config.has_option(view, 'filter.older'):
+                    r = oscpluginoverview.sources.evalRepo(repos, config.get(view,'filter.older'))
+                    if r == None:
+                        print "Unknown repo %s as older filter" % r
+                        exit(1)
+                    else:
+                        showrow = False
+                        baseversion = versions[r]
+                        import rpm
+                        for k,v in versions.items():
+                            # if the version is not there skip this row
+                            if v == None:
+                                continue
+                            # see if any of the other versions is newer, and if
+                            # yes, enable the row
+                            if (rpm.labelCompare((None, str(v), '1'), (None, str(baseversion), '1')) == 1) and k != r:
+                                showrow = True
+                
+                # append row to the table if filter allows it
+                if showrow:
+                    rows.append(row)
+            
             #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
-            if showrow:
-                table.add_rows(rows)
+            table.add_rows(rows)
             print "** %s ** " % view
             print table.draw()
             print
