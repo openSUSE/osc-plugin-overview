@@ -221,6 +221,53 @@ class GemSource(PackageSource):
         self.readGemsOnce()
         return self.gems[package]
 
+
+class FreshmeatSource(PackageSource):
+    """
+    freshmeat.net project description
+    """
+    def __init__(self):
+        pass
+    def _keynat(self, string):
+        r = []
+        for c in string:
+            try:
+                c = int(c)
+                try: r[-1] = r[-1] * 10 + c
+                except: r.append(c)
+            except:
+                r.append(c)
+        return r
+
+    def _fetch(self, package):
+        versions = []
+        try:
+            fd = urllib2.urlopen("http://freshmeat.net/projects/%s/releases" % package)
+            html = "\n".join(fd.readlines())
+            fd.close()
+            from BeautifulSoup import BeautifulSoup
+            soup = BeautifulSoup(html)
+            for li in soup.findAll('li', attrs={'class': 'release'}):
+                a = li.findNext('a')
+                version = a.string
+                versions.append(version)
+                pass
+        except urllib2.HTTPError, e:
+            raise Exception('Cannot retrieve project information from freshmeat.net for %s' % package)
+        except Exception:
+            raise Exception('Unexpected error while fetching project information from fresheat.net for %s: %s' % (package, sys.exc_info()[0]))
+
+        if len(a) < 1:
+            return None
+        return sorted(versions, key=self._keynat)[-1]
+        #return versions
+
+    def packages(self):
+        raise Exception("querying package list from freshmeat not supported. Use a different source as the base package list or specify the package list manually")
+    def version(self, package):
+        return self._fetch(package)
+    pass
+
     
 def createSourceFromUrl(url):
     try:
@@ -241,5 +288,12 @@ def createSourceFromUrl(url):
             return BuildServicePendingRequestsSource(api, name)
     elif kind == "gem":
         return CachedSource(GemSource(name))
+    elif kind == "fm":
+        try:
+            from BeautifulSoup import BeautifulSoup
+        except ImportError:
+            raise "Unsupported source type %s: you must install the package python-beautifulsoup first" % kind
+        return CachedSource(FreshmeatSource())
+
     
     raise "Unsupported source type %s" % url

@@ -72,7 +72,17 @@ def _overview(self, group):
                 # save versions in a map repo -> version, to use in filters
                 versions = {}
                 for repo in repos:
-                    if package  in data[repo].packages():
+                    # the source may not support getting the package list
+                    # in this case we just assume the package will be there
+                    packageExists = False
+                    try:
+                        repopkgs = data[repo].packages()
+                        if package in repopkgs:
+                            packageExists = True
+                    except:
+                        packageExists = True
+                        
+                    if packageExists:
                         version = data[repo].version(package)
                         versions[repo] = version
                         row.append(version)
