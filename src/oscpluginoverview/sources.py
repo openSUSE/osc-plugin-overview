@@ -45,22 +45,35 @@ class PackageSource:
     """
     pass
 
+class CachedSource(PackageSource):
+    """
+    Wrapper that provides cache services to
+    an existing source
+    """
+    
+    def __init__(self, source):
+        self.source = source
+        self.pkglist = None
+        self.versions = {}
+
+    def packages(self):
+        if self.pkglist == None:
+            self.pkglist = self.source.packages()
+        return self.pkglist
+    def version(self, package):
+        if not self.versions.has_key(package):
+            self.versions[package] = self.source.version(package)
+        return self.versions[package]
+
 class BuildServiceSource(PackageSource):
 
-    # cache for package list
-    # service/project -> list
-    _packagelist = {}
-    
     def __init__(self, service, project):
         self.service = service
         self.project = project
         
     def packages(self):
-        key = self.service + "/" + self.project
-        if not BuildServiceSource._packagelist.has_key(key):      
-            import osc.core
-            BuildServiceSource._packagelist[key] = osc.core.meta_get_packagelist(self.service, self.project)
-        return BuildServiceSource._packagelist[key]
+        import osc.core
+        return  osc.core.meta_get_packagelist(self.service, self.project)
     
     def version(self, package):
         """
@@ -167,34 +180,37 @@ class GemSource(PackageSource):
     gem server
     """
     # cache gem server name -> package list
-    _gemlist = {}
 
     def __init__(self, gemserver):
         self.gemserver = gemserver
-        
-    def packages(self):
-        # if the list is not cached, cache it
-        if not GemSource._gemlist.has_key(self.gemserver):
+        # map gemname to version
+        self.gems = None
+
+    def readGemsOnce(self):
+        if self.gems == None:
             try:
+                self.gems = {}
                 if os.environ.has_key("OSC_RUBY_TEST"):
                     fd = open("/tmp/index")
                 else:
-                    fd = urllib2.urlopen("http://gems.rubyforge.org/quick/index")
+                    fd = urllib2.urlopen("http://%s/quick/index" % self.gemserver)
                     import rpm
                     gems = {}
                     for line in fd:
                         name, version = line.strip().rsplit('-', 1)
-                        gems["rubygem-%s" % name] = version
-                    GemSource._gemlist[self.gemserver] = gems
+                        self.gems["rubygem-%s" % name] = version
             except urllib2.HTTPError, e:
                 raise Exception('Cannot get upstream gem index')
             except IOError:
                 raise Exception('Cannot get local index')
             except Exception:
-                #print e
+            #print e
                 raise Exception("Unexpected error: %s" % sys.exc_info()[0])
+        
+    def packages(self):
         # return the cache entry
-        return GemSource._gemlist[self.gemserver].keys()
+        self.readGemsOnce()
+        return self.gems.keys()
     
     def version(self, package):
         """
@@ -202,8 +218,8 @@ class GemSource(PackageSource):
         Package must exist in packages()
         """
         # call packages just to make sure the cache is filled
-        self.packages()
-        return GemSource._gemlist[self.gemserver][package]
+        self.readGemsOnce()
+        return self.gems[package]
 
     
 def createSourceFromUrl(url):
@@ -220,10 +236,10 @@ def createSourceFromUrl(url):
             api = "http://api.suse.de"
 
         if kind == "obs" or kind == "ibs":
-            return BuildServiceSource(api, name)
+            return CachedSource(BuildServiceSource(api, name))
         elif kind == "obssr" or kind == "ibssr":
             return BuildServicePendingRequestsSource(api, name)
     elif kind == "gem":
-        return GemSource(name)
+        return CachedSource(GemSource(name))
     
     raise "Unsupported source type %s" % url
