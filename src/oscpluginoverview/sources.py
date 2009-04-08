@@ -4,6 +4,149 @@ import os
 
 # if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :  
 
+class View:
+    """
+    Represents a view of various packages across various sources
+    """
+    def __init__(self, name, config):
+        self.name = name
+        # map repo-name -> map packages -> versions
+        self.versions = {}
+        self.config = config
+        self.packages = []
+        self.repos = []
+        # data sources objects, per repo
+        self.data = {}
+        # filter list, for each package row tells where the package
+        # is hidden by filters
+        self.filter = []
+        pass
+
+    def setVersionForPackage(self, repo, package, version):
+        """
+        Sets the known version of a package in a repo
+        """
+        if not self.versions.has_key(repo):
+            self.versions[repo] = {}
+        self.versions[repo][package] = version
+
+    def printTable(self):
+        #print ",".join(self.filter)
+        from oscpluginoverview.texttable import Texttable
+        table = Texttable()
+        rows = []
+
+        header = []
+        #header.append(" ")
+        header.append("package")
+        for r in self.repos:
+            header.append(r)
+
+        rows.append(header)
+
+        for p in self.packages:
+            # Don't print if the package is filtered
+            if p in self.filter:
+                continue
+            row = []
+            row.append(p)
+            for r in self.repos:
+                v = self.versions[r][p]
+                if v == None:
+                    row.append('-')
+                else:
+                    row.append(v)
+            rows.append(row)
+            
+        #versions[repo] = version
+        #row.append(version)
+        #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
+        table.add_rows(rows)
+        print "** %s ** " % self.name
+        print table.draw()
+        print
+
+
+    def readConfig(self):
+        config = self.config
+        view = self.name
+        
+        if config.has_option(view, 'repos'):
+            self.repos = config.get(view,'repos').split(',')
+            if len(self.repos) == 0:
+                return
+            
+            for repo in self.repos:
+                # resolve the repo uri to a data source object
+                import oscpluginoverview.sources
+                self.data[repo] = oscpluginoverview.sources.createSourceFromUrl(repo)
+
+            if config.has_option(view, 'packages'):
+                # resolve the packages list or macro
+                pkgopt = config.get(view,'packages')
+                self.packages = oscpluginoverview.sources.evalPackages(self.repos, self.data, pkgopt)
+            
+            for package in self.packages:
+                row = []
+                # append the package name, then we add the versions
+                row.append(package)
+
+                # now we see this package in various repos
+                changes = []
+
+                # save versions in a map repo -> version, to use in filters
+                for repo in self.repos:
+                    # initialize
+                    if not self.versions.has_key(repo):
+                        self.versions[repo] = {}
+                    # the source may not support getting the package list
+                    # in this case we just assume the package will be there
+                    packageExists = False
+                    try:
+                        repopkgs = self.data[repo].packages()
+                        if package in repopkgs:
+                            packageExists = True
+                    except:
+                        packageExists = True
+                        
+                    if packageExists:
+                        version = self.data[repo].version(package)
+                    else:
+                        version = None
+                    self.setVersionForPackage(repo, package, version)
+
+                # older filter, show the row _only_ if specified repo is
+                # older than any other column
+                showrow = True
+                if config.has_option(view, 'filter.older'):
+                    oldfilterrepo = oscpluginoverview.sources.evalRepo(self.repos, config.get(view,'filter.older'))
+                    if oldfilterrepo == None:
+                        print "Unknown repo %s as older filter" % oldfilterrepo
+                        exit(1)
+                    else:
+                        showrow = False
+                        baseversion = self.versions[oldfilterrepo][package]
+                        import rpm
+                        for cmprepo, cmpvers in self.versions.items():
+                            # version to compare to
+                            if not cmpvers.has_key(package):
+                                continue
+                            v = cmpvers[package]
+                            # if the version is not there skip this row
+                            if v == None:
+                                continue
+                            # see if any of the other versions is newer, and if
+                            # yes, enable the row
+                            if (rpm.labelCompare((None, str(v), '1'), (None, str(baseversion), '1')) == 1) and cmprepo != oldfilterrepo:
+                                showrow = True
+                
+                # append to the filter if it should not be shown
+                if not showrow:
+                    self.filter.append(package)            
+        else:
+            print "No repos defined for %s" % view
+            return
+
 def evalRepo(repos, expr):
     """
     evaluates a repo from a $x expression

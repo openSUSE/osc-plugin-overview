@@ -28,101 +28,16 @@ def _changes(self, group):
 
 def _overview(self, group):
     import ConfigParser
+    import oscpluginoverview.sources
+    
     config = ConfigParser.ConfigParser()
         
     config.read(os.path.expanduser("~/.osc-overview/%s.ini" % group ))
 
-    from oscpluginoverview.texttable import Texttable
-    for view in config.sections():
-
-        table = Texttable()
-        rows = []
-        packages = []
-        repos = []
-                    
-        if config.has_option(view, 'repos'):
-            repos = config.get(view,'repos').split(',')
-            if len(repos) == 0:
-                break
-
-            data = {}
-            for repo in repos:
-                import oscpluginoverview.sources
-                data[repo] = oscpluginoverview.sources.createSourceFromUrl(repo)
-
-            if config.has_option(view, 'packages'):
-                pkgopt = config.get(view,'packages')
-                packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
-            header = []
-            #header.append(" ")
-            header.append("package")
-            for r in repos:
-                header.append(r)
-                
-            rows.append(header)
-            
-            for package in packages:
-                row = []
-                # append the package name, then we add the versions
-                row.append(package)
-
-                # now we see this package in various repos
-                changes = []
-
-                # save versions in a map repo -> version, to use in filters
-                versions = {}
-                for repo in repos:
-                    # the source may not support getting the package list
-                    # in this case we just assume the package will be there
-                    packageExists = False
-                    try:
-                        repopkgs = data[repo].packages()
-                        if package in repopkgs:
-                            packageExists = True
-                    except:
-                        packageExists = True
-                        
-                    if packageExists:
-                        version = data[repo].version(package)
-                        versions[repo] = version
-                        row.append(version)
-                    else:
-                        row.append("-")
-
-                # older filter, show the row _only_ if specified repo is
-                # older than any other column
-                showrow = True
-                if config.has_option(view, 'filter.older'):
-                    r = oscpluginoverview.sources.evalRepo(repos, config.get(view,'filter.older'))
-                    if r == None:
-                        print "Unknown repo %s as older filter" % r
-                        exit(1)
-                    else:
-                        showrow = False
-                        baseversion = versions[r]
-                        import rpm
-                        for k,v in versions.items():
-                            # if the version is not there skip this row
-                            if v == None:
-                                continue
-                            # see if any of the other versions is newer, and if
-                            # yes, enable the row
-                            if (rpm.labelCompare((None, str(v), '1'), (None, str(baseversion), '1')) == 1) and k != r:
-                                showrow = True
-                
-                # append row to the table if filter allows it
-                if showrow:
-                    rows.append(row)
-            
-            #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
-            table.add_rows(rows)
-            print "** %s ** " % view
-            print table.draw()
-            print
-            
-        else:
-            print "No repos defined for %s" % view
-            continue
+    for secname in config.sections():
+        view = oscpluginoverview.sources.View(secname, config)
+        view.readConfig()
+        view.printTable()
 
 def do_overview(self, subcmd, opts, *args):
 
