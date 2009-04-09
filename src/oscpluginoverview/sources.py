@@ -1,6 +1,7 @@
 import string, sys
 import urllib2
 import os
+import rpm
 
 # if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :  
 
@@ -12,6 +13,9 @@ class View:
         self.name = name
         # map repo-name -> map packages -> versions
         self.versions = {}
+        # reverse index
+        # map package -> map repos -> versions
+        self.versions_rev = {}
         self.config = config
         self.packages = []
         self.repos = []
@@ -28,7 +32,11 @@ class View:
         """
         if not self.versions.has_key(repo):
             self.versions[repo] = {}
+        if not self.versions_rev.has_key(package):
+            self.versions_rev[package] = {}
+
         self.versions[repo][package] = version
+        self.versions_rev[package][repo] = version
 
     def printTable(self):
         #print ",".join(self.filter)
@@ -66,7 +74,69 @@ class View:
         print table.draw()
         print
 
+    def printChangelog(self):
+        # find higher version per package and where does it come from
+        # map package to bigger version
+        skippedlines = []
+        for package, repovers in self.versions_rev.items():
+            res = sorted(repovers.items(), lambda x,y: rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1')) )
 
+            # now we have a list of tuples (repo, version) for this package
+            # we find the last two and ask for the changes file
+            if len(res) >= 2:
+                # check that the bigger is not none
+                if res[len(res)-1][1]:
+                    if res[len(res)-2][1]:
+                        # ok we can do a diff
+                        reponew = res[len(res)-1][0]
+                        repoold = res[len(res)-2][0]
+                        print "------- %s ( %s vs %s )" % (package, reponew, repoold)
+                        changesnew = self.data[reponew].changelog(package)
+                        changesold = self.data[repoold].changelog(package)
+                        import difflib
+#                        diff = difflib.unified_diff(changesold.splitlines(1), changesnew.splitlines(1), charjunk=lambda c:c in " \t\n")
+                        differ = difflib.Differ(charjunk=lambda x: x in " \t\x0a", linejunk=lambda x: x in " \t\0x0a")
+                        linesold = changesold.splitlines(1)
+                        linesold = map(lambda x: string.strip(x, " "), linesold)
+                        linesnew = changesnew.splitlines(1)
+                        linesnew = map(lambda x: string.strip(x, " "), linesnew)
+
+                        diff = differ.compare(linesold, linesnew)
+                        lastline = None
+                        difflines = []
+                        skip = False
+                        for line in diff:
+                            if line[0] == '+' or line[0] == '-' or line[0] == '?':
+                                sys.stdout.write(line)
+                            continue
+                            
+                            if not lastline:
+                                lastline = line
+                                continue
+
+                            s = difflib.SequenceMatcher(lambda x: x in " \t+-", lastline, line )
+                            if s.ratio() > 0.9:
+                                print s.ratio()
+                                print "Found MATCH %f" % s.ratio()
+                                print "** %s" % lastline
+                                print "** %s" % line
+                                for tag, i1, i2, j1, j2 in s.get_opcodes():
+                                    print ("%7s a[%d:%d] (%s) b[%d:%d] (%s)" % (tag, i1, i2, lastline[i1:i2], j1, j2, line[j1:j2]))
+
+                                lastline = None
+                                continue
+                            else:
+                                sys.stdout.write(lastline)
+                                lastline = line
+
+                        #difflines.append(line)
+                else:
+                    # if it is none, continue
+                    continue
+                
+            else:
+                pass
+    
     def readConfig(self):
         config = self.config
         view = self.name
@@ -186,7 +256,20 @@ class PackageSource:
     Represents one repository of packages, for example
     a OBS repo, a gem server, a upstream ftp.
     """
-    pass
+    def changelog(self, package):
+        raise Exception("querying changelog from %s not supported. Use a different source" % self.label)
+
+    def packages(self):
+        raise Exception("querying package list from %s not supported. Use a different source as the base package list or specify the package list manually" % self.label)
+
+    def version(self, package):
+        raise Exception("querying package version from %s not supported. Use a different source" % self.label)
+
+    def label(self):
+        """
+        description for messages
+        """
+        raise Exception("label not implemented")
 
 class CachedSource(PackageSource):
     """
@@ -198,6 +281,12 @@ class CachedSource(PackageSource):
         self.source = source
         self.pkglist = None
         self.versions = {}
+        self.changelogs = {}
+
+    def changelog(self, package):
+        if not self.changelogs.has_key(package):
+            self.changelogs[package] = self.source.changelog(package)
+        return self.changelogs[package]
 
     def packages(self):
         if self.pkglist == None:
@@ -208,12 +297,34 @@ class CachedSource(PackageSource):
             self.versions[package] = self.source.version(package)
         return self.versions[package]
 
+    def label(self):
+        return self.source.label
+
 class BuildServiceSource(PackageSource):
 
     def __init__(self, service, project):
         self.service = service
         self.project = project
-        
+
+    def label(self):
+        return self.service + "/" + self.project
+
+    def changelog(self, package):
+        """
+        Returns the changelog of a package
+        in this case package.changes file
+        """
+        import osc.core
+        import osc.conf
+        # There's got to be a more efficient way to do this :(
+        u = osc.core.makeurl(self.service, ['source', self.project, package, "%s.changes" % package])
+        try:
+            f = osc.core.http_GET(u)
+        except urllib2.HTTPError, e:
+            print "Cannot get package changelog from: %s" % u
+            exit(1)        
+        return f.read()
+    
     def packages(self):
         import osc.core
         return  osc.core.meta_get_packagelist(self.service, self.project)
@@ -253,9 +364,18 @@ class BuildServiceSource(PackageSource):
 #get_submit_request_list(apiurl, project, package, req_state=('new')):
 
 class BuildServicePendingRequestsSource(PackageSource):
+    """
+    This class simulates a source with the submit requests
+    against a build service project
+    So you can see what is pending.
+    """
+    
     # cache service/repo -> list
     _packagelist = {}
     _srlist = {}
+
+    def label(self):
+        return "submit requests"
     
     def __init__(self, service, project):
         self.service = service
@@ -324,6 +444,9 @@ class GemSource(PackageSource):
     """
     # cache gem server name -> package list
 
+    def label(self):
+        return "gems"
+
     def __init__(self, gemserver):
         self.gemserver = gemserver
         # map gemname to version
@@ -371,6 +494,10 @@ class FreshmeatSource(PackageSource):
     """
     def __init__(self):
         pass
+
+    def label(self):
+        return "freshmeat"
+    
     def _keynat(self, string):
         r = []
         for c in string:
@@ -405,8 +532,6 @@ class FreshmeatSource(PackageSource):
         return sorted(versions, key=self._keynat)[-1]
         #return versions
 
-    def packages(self):
-        raise Exception("querying package list from freshmeat not supported. Use a different source as the base package list or specify the package list manually")
     def version(self, package):
         return self._fetch(package)
     pass

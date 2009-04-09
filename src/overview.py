@@ -26,7 +26,7 @@ def _changes(self, group):
 
     #for view in config.sections():
 
-def _overview(self, group):
+def _overview(self, group, opts):
     import ConfigParser
     import oscpluginoverview.sources
     
@@ -38,32 +38,37 @@ def _overview(self, group):
         view = oscpluginoverview.sources.View(secname, config)
         view.readConfig()
         view.printTable()
+        if opts.changelog:
+            view.printChangelog()
+
+
+@cmdln.option('-c', '--changelog', action='store_true',
+              help='Also output repo changelog')
 
 def do_overview(self, subcmd, opts, *args):
+    """${cmd_name}: Overview of various repositories.
 
+    For a full description, read:
+    http://en.opensuse.org/Build_Service/osc_plugins/Overview
+
+    overview viewname : willa attempt to read the group from
+    ~/.osc-overview/groupname.ini and display the data.
+
+    Options:
+      -c : display diff of changes across the newest and the previous
+           versions of the packages.
+
+    Usage:
+      osc overview [-c] {group}
+
+      You should define your groups in ~/.osc-overview/$group.ini
+
+    """
     if not os.path.exists(os.path.expanduser("~/.osc-overview")):
         print "Drop your views in ~/.osc-overview"
         exit(1)
 
     sys.path.append(os.path.expanduser('~/.osc-plugins'))
-    
-    #pyverstr = sys.version.split()[0]
-    #pyver = pyverstr.split(".")
-    #if map(int, pyver) < [2, 6]:
-    #    error = "Sorry, osc ruby requires Python 2.6, you have {0}".format(pyverstr)
-    #    print(error)
-    #    exit(1)
-    
-    """${cmd_name}: Various commands to ease maintenance.
-
-    "overview" (or "o") will list the packages that need some action.
-
-    Usage:
-        osc overview group
-
-        You should define your groups in ~/.osc-overview/$group.ini
-        
-    """
 
     cmds = []
     cfgfiles = os.listdir(os.path.expanduser('~/.osc-overview'))
@@ -83,11 +88,12 @@ def do_overview(self, subcmd, opts, *args):
         raise oscerr.WrongArgs('Too many arguments.')
 
     from oscpluginoverview.sources import GemSource, BuildServiceSource, BuildServicePendingRequestsSource
-    
+
     #gems = GemSource("foo")
     #print gems.packages()
     #print gems.version('rubygem-hpricot')
     #obs = BuildServiceSource('http://api.opensuse.org', 'zypp:Head')
+    #print obs.changelog('libzypp')
     #print obs.packages()
     #print obs.version('libzypp')
 
@@ -95,5 +101,5 @@ def do_overview(self, subcmd, opts, *args):
     #print reqs.packages()
     #print reqs.version("patch")
 
-    self._overview(cmd)
+    self._overview(cmd, opts)
 
