@@ -2,6 +2,7 @@ import string, sys
 import urllib2
 import os
 import rpm
+import oscpluginoverview.diff
 
 # if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :  
 
@@ -93,43 +94,8 @@ class View:
                         print "------- %s ( %s vs %s )" % (package, reponew, repoold)
                         changesnew = self.data[reponew].changelog(package)
                         changesold = self.data[repoold].changelog(package)
-                        import difflib
-#                        diff = difflib.unified_diff(changesold.splitlines(1), changesnew.splitlines(1), charjunk=lambda c:c in " \t\n")
-                        differ = difflib.Differ(charjunk=lambda x: x in " \t\x0a", linejunk=lambda x: x in " \t\0x0a")
-                        linesold = changesold.splitlines(1)
-                        linesold = map(lambda x: string.strip(x, " "), linesold)
-                        linesnew = changesnew.splitlines(1)
-                        linesnew = map(lambda x: string.strip(x, " "), linesnew)
 
-                        diff = differ.compare(linesold, linesnew)
-                        lastline = None
-                        difflines = []
-                        skip = False
-                        for line in diff:
-                            if line[0] == '+' or line[0] == '-' or line[0] == '?':
-                                sys.stdout.write(line)
-                            continue
-                            
-                            if not lastline:
-                                lastline = line
-                                continue
-
-                            s = difflib.SequenceMatcher(lambda x: x in " \t+-", lastline, line )
-                            if s.ratio() > 0.9:
-                                print s.ratio()
-                                print "Found MATCH %f" % s.ratio()
-                                print "** %s" % lastline
-                                print "** %s" % line
-                                for tag, i1, i2, j1, j2 in s.get_opcodes():
-                                    print ("%7s a[%d:%d] (%s) b[%d:%d] (%s)" % (tag, i1, i2, lastline[i1:i2], j1, j2, line[j1:j2]))
-
-                                lastline = None
-                                continue
-                            else:
-                                sys.stdout.write(lastline)
-                                lastline = line
-
-                        #difflines.append(line)
+                        print oscpluginoverview.diff.diff_strings(changesold, changesnew)
                 else:
                     # if it is none, continue
                     continue
