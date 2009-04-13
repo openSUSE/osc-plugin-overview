@@ -25,6 +25,8 @@ class View:
         # filter list, for each package row tells where the package
         # is hidden by filters
         self.filter = []
+        # the changelog of the whole view
+        self.changelog = None
         pass
 
     def setVersionForPackage(self, repo, package, version):
@@ -75,33 +77,52 @@ class View:
         print table.draw()
         print
 
-    def printChangelog(self):
-        # find higher version per package and where does it come from
-        # map package to bigger version
-        skippedlines = []
-        for package, repovers in self.versions_rev.items():
-            res = sorted(repovers.items(), lambda x,y: rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1')) )
+    def changelogDiff(self):
+        """
+        Returns a diff with package changes
+        (obtained from the .changes file) of the whole
+        group. The 2 newer versions are used to compare
+        """
+        
+        if not self.changelog:
+            from cStringIO import StringIO
+            file_str = StringIO()
 
-            # now we have a list of tuples (repo, version) for this package
-            # we find the last two and ask for the changes file
-            if len(res) >= 2:
-                # check that the bigger is not none
-                if res[len(res)-1][1]:
-                    if res[len(res)-2][1]:
-                        # ok we can do a diff
-                        reponew = res[len(res)-1][0]
-                        repoold = res[len(res)-2][0]
-                        print "------- %s ( %s vs %s )" % (package, reponew, repoold)
-                        changesnew = self.data[reponew].changelog(package)
-                        changesold = self.data[repoold].changelog(package)
-
-                        print oscpluginoverview.diff.diff_strings(changesold, changesnew)
-                else:
-                    # if it is none, continue
-                    continue
+            # find higher version per package and where does it come from
+            # map package to bigger version
+            for package, repovers in self.versions_rev.items():
+                res = sorted(repovers.items(), lambda x,y: rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1')) )
                 
-            else:
-                pass
+                # now we have a list of tuples (repo, version) for this package
+                # we find the last two and ask for the changes file
+                if len(res) >= 2:
+                    # check that the bigger is not none
+                    if res[len(res)-1][1]:
+                        if res[len(res)-2][1]:
+                            # ok we can do a diff
+                            reponew = res[len(res)-1][0]
+                            repoold = res[len(res)-2][0]
+                            file_str.write("------- %s ( %s vs %s )" % (package, reponew, repoold))
+                            file_str.write("\n")
+                            changesnew = self.data[reponew].changelog(package)
+                            changesold = self.data[repoold].changelog(package)
+
+                            file_str.write(oscpluginoverview.diff.diff_strings(changesold, changesnew))
+                            file_str.write("\n")
+                        else:
+                            # if it is none, continue
+                            continue
+                        
+                    else:
+                        pass
+            self.changelog = file_str.getvalue()
+        # if the changelog was cached
+        # just return it
+        return self.changelog
+            
+    def printChangelog(self):
+        print self.changelogDiff()
+        pass
     
     def readConfig(self):
         config = self.config
