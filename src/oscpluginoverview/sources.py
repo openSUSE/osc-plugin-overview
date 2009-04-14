@@ -19,6 +19,8 @@ class View:
         self.versions_rev = {}
         self.config = config
         self.packages = []
+        # packages included in the changelog
+        self.changelog_packages = []
         self.repos = []
         # data sources objects, per repo
         self.data = {}
@@ -102,6 +104,7 @@ class View:
                             # ok we can do a diff
                             reponew = res[len(res)-1][0]
                             repoold = res[len(res)-2][0]
+                            self.changelog_packages.append(package)
                             file_str.write("------- %s ( %s vs %s )" % (package, reponew, repoold))
                             file_str.write("\n")
                             changesnew = self.data[reponew].changelog(package)
@@ -123,7 +126,11 @@ class View:
     def printChangelog(self):
         print self.changelogDiff()
         pass
-    
+
+    def printPatchinfo(self):
+        import oscpluginoverview.patchinfo
+        print oscpluginoverview.patchinfo.patchinfo_from_changelog(self.changelogDiff(), self.changelog_packages, "me@me.com")
+
     def readConfig(self):
         config = self.config
         view = self.name

@@ -40,10 +40,15 @@ def _overview(self, group, opts):
         view.printTable()
         if opts.changelog:
             view.printChangelog()
+        if opts.patchinfo:
+            view.printPatchinfo()
 
 
 @cmdln.option('-c', '--changelog', action='store_true',
               help='Also output repo changelog')
+@cmdln.option('-p', '--patchinfo', action='store_true',
+              help='Also output repo patchinfo file')
+
 
 def do_overview(self, subcmd, opts, *args):
     """${cmd_name}: Overview of various repositories.
