@@ -85,17 +85,18 @@ class View:
         print table.draw()
         print
 
-    def packageCompare(self, x, y):
+    def packageCompare(self, package, x, y):
         """
         Compares two packages based on version
         If the versions are the same, tries to get the mtime of the
         changes file
 
         receives two tuples (repo, version) as input
-        """
+        """ 
         res = rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1'))
-        if res == 0:
-            return res
+        # only fetch mtimes if the package is in the repo
+        if res == 0 and x[1] and y[1]:
+            return cmp(self.data[x[0]].mtime(package), self.data[y[0]].mtime(package)) 
         else:
             return res
 
@@ -112,7 +113,7 @@ class View:
             # find higher version per package and where does it come from
             # map package to bigger version
             for package, repovers in self.versions_rev.items():
-                res = sorted(repovers.items(), self.packageCompare )
+                res = sorted(repovers.items(), lambda x,y: self.packageCompare(package,x,y) )
                 
                 # now we have a list of tuples (repo, version) for this package
                 # we find the last two and ask for the changes file
@@ -303,11 +304,17 @@ class CachedSource(PackageSource):
         self.pkglist = None
         self.versions = {}
         self.changelogs = {}
+        self.mtimes = {}
 
     def changelog(self, package):
         if not self.changelogs.has_key(package):
             self.changelogs[package] = self.source.changelog(package)
         return self.changelogs[package]
+
+    def mtime(self, package):
+        if not self.mtimes.has_key(package):
+            self.mtimes[package] = self.source.mtime(package)
+        return self.mtimes[package]
 
     def packages(self):
         if self.pkglist == None:
@@ -371,6 +378,20 @@ class BuildServiceSource(PackageSource):
         in this case package.changes file
         """
         return self.get_source_file(package, "%s.changes" % package)
+
+    def mtime(self, package):
+        m = osc.core.show_files_meta(self.service, self.project, package)
+        mtime = 0
+        try:
+            # only source link packages have a <linkinfo> element.
+            entries = ET.parse(StringIO(''.join(m))).getroot().findall('entry')
+            for entry in entries:
+                entrytime = string.atoi(entry.get('mtime'))
+                if entrytime > mtime:
+                    mtime = entrytime
+        except:
+            return 0
+        return mtime
     
     def packages(self):
         import osc.core
