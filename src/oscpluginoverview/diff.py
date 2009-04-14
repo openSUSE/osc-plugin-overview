@@ -19,13 +19,13 @@ def diff_strings(oldstr, newstr):
             import commands
             (code, output) = commands.getstatusoutput("diff -u -w %s %s" % (name_old, name_new))
             if not (code/256):
-                raise Exception("Can't execute diff")
+                raise Exception("diff returned non zero")
             return output
         except:
-            print "Can't execute diff: %s" % sys.exc_info()[0]
+            print "Can't execute diff: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])
             exit(1)
     except:
-        print "problem openting tempfile: %s" % sys.exc_info()[0]
+        print "problem openting tempfile: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])
         exit(1)
     else:
         file_new.close()

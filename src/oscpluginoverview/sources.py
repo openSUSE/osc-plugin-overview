@@ -3,6 +3,11 @@ import urllib2
 import os
 import rpm
 import oscpluginoverview.diff
+from cStringIO import StringIO
+try:
+    from xml.etree import cElementTree as ET
+except ImportError:
+    import cElementTree as ET
 
 # if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :  
 
@@ -87,7 +92,6 @@ class View:
         """
         
         if not self.changelog:
-            from cStringIO import StringIO
             file_str = StringIO()
 
             # find higher version per package and where does it come from
@@ -148,8 +152,7 @@ class View:
             if config.has_option(view, 'packages'):
                 # resolve the packages list or macro
                 pkgopt = config.get(view,'packages')
-                self.packages = oscpluginoverview.sources.evalPackages(self.repos, self.data, pkgopt)
-            
+                self.packages = oscpluginoverview.sources.evalMacro(self.repos, self.data, pkgopt)
             for package in self.packages:
                 row = []
                 # append the package name, then we add the versions
@@ -183,11 +186,12 @@ class View:
                 # older than any other column
                 showrow = True
                 if config.has_option(view, 'filter.older'):
-                    oldfilterrepo = oscpluginoverview.sources.evalRepo(self.repos, config.get(view,'filter.older'))
-                    if oldfilterrepo == None:
-                        print "Unknown repo %s as older filter" % oldfilterrepo
+                    oldfilterrepos = oscpluginoverview.sources.evalMacro(self.repos, self.data, config.get(view,'filter.older'))
+                    if len(oldfilterrepos) != 1:
+                        print "Only one source can be used as base for old filter"
                         exit(1)
                     else:
+                        oldfilterrepo = oldfilterrepos[0]
                         showrow = False
                         baseversion = self.versions[oldfilterrepo][package]
                         import rpm
@@ -211,39 +215,47 @@ class View:
             print "No repos defined for %s" % view
             return
 
-def evalRepo(repos, expr):
+def evalMacro(repos, data, expr):
     """
-    evaluates a repo from a $x expression
+    evaluates a expression
+    returns expanded version
+
+    macros:
+    $x repository in position x
+    *x package list of repos in position x
+
+    returns an ordered list of strings
     """    
     import re
-    repo = None
-    matches = re.findall('\$(\d+)', expr)
-    if len(matches) > 0:
-        from string import atoi
-        column = atoi(matches[0])
-        if len(repos) < column:
-            print "Can't use repo #%d package list, not enough repos" % column
-            exit(1)
-        repo = repos[column-1]
-    else:
-        # if not a expression evaluate it as a string
-        if expr in repos:
-            return expr
-    return repo
-
-def evalPackages(repos, data, pkgopt):
-    repo = evalRepo(repos, pkgopt)
-    packages = []
-    if repo == None:
-        # if no column specified, a package list
-        # must be splited
-        packages = pkgopt.split(',')
-    else:
-        packages = data[repo].packages()
-    if len(packages) == 0:
-        print "No packages defined for $s" % view
-        exit(1)
-    return packages
+    ret = []
+    components = expr.split(',')
+    for component in components:
+        matches = re.findall('\$(\d+)', component)
+        if len(matches) > 0:
+            from string import atoi
+            column = atoi(matches[0])
+            if len(repos) < column:
+                print "Can't use repo #%d, not enough repos" % column
+                exit(1)
+            repo = repos[column-1]
+            ret.append(repo)
+        matches = re.findall('\*(\d+)', component)
+        if len(matches) > 0:
+            from string import atoi
+            column = atoi(matches[0])
+            if len(repos) < column:
+                print "Can't use repo #%d package list, not enough repos" % column
+                exit(1)
+            repo = repos[column-1]
+            packages = data[repo].packages()
+            if len(packages) == 0:
+                print "No packages defined for $s" % view
+                exit(1)
+            ret.extend(packages)
+        else:
+            # assume it is a repo
+            ret.append(component)
+    return ret
 
 class PackageSource:
     """
@@ -303,48 +315,74 @@ class BuildServiceSource(PackageSource):
     def label(self):
         return self.service + "/" + self.project
 
+    def get_linked_file(self, package, file):
+        """
+        return a tuple
+        project package file
+
+        with the original project
+        """
+        try:
+            link = self.get_source_file(package, '_link')
+            io = StringIO(link)
+            root = ET.parse(io).getroot()
+            srcprj = root.attrib["project"]
+            srcpkg = root.attrib["package"]
+            return (srcprj, srcpkg, file)
+        except urllib2.HTTPError, e:
+            return None
+
+    def get_project_source_file(self, project, package, file):
+        """
+        Returns the content of a source file
+        and expand links if necessary
+
+        if the file is not found, we fallback looking if the
+        file is a linked package        
+        """
+        import osc.core
+        import osc.conf
+        # There's got to be a more efficient way to do this :(
+        u = osc.core.makeurl(self.service, ['source', project, package, file])
+        f = None
+        try:
+            f = osc.core.http_GET(u)
+            return f.read()
+        except urllib2.HTTPError, e:
+            # ok may be it is a source link and this utterly sucks
+            # but lets add some AI
+            try:
+                ret = self.get_linked_file(package, file)
+                u = osc.core.makeurl(self.service, ['source', ret[0], ret[1], ret[2]])
+                f = osc.core.http_GET(u)
+                return f.read()
+            except urllib2.HTTPError, e:
+                 # now really give up
+                 print "Cannot get source file from: %s" % u
+                 exit(1)        
+        return None
+
+    def get_source_file(self, package, file):
+        return self.get_project_source_file(self.project, package, file)
+    
     def changelog(self, package):
         """
         Returns the changelog of a package
         in this case package.changes file
         """
-        import osc.core
-        import osc.conf
-        # There's got to be a more efficient way to do this :(
-        u = osc.core.makeurl(self.service, ['source', self.project, package, "%s.changes" % package])
-        try:
-            f = osc.core.http_GET(u)
-        except urllib2.HTTPError, e:
-            print "Cannot get package changelog from: %s" % u
-            exit(1)        
-        return f.read()
+        return self.get_source_file(package, "%s.changes" % package)
     
     def packages(self):
         import osc.core
         return  osc.core.meta_get_packagelist(self.service, self.project)
-    
-    def version(self, package):
+
+    def parse_version(self, history):
         """
         Returns the version for a package
         Package must exist in packages()
         """
-        try:
-            from xml.etree import cElementTree as ET
-        except ImportError:
-            import cElementTree as ET
-
-        import osc.core
-        import osc.conf
-        # There's got to be a more efficient way to do this :(
-        u = osc.core.makeurl(self.service, ['source', self.project, package, '_history'])
-        try:
-            f = osc.core.http_GET(u)
-        except urllib2.HTTPError, e:
-            print "Cannot get package info from: %s" % u
-            exit(1)
-        
-        root = ET.parse(f).getroot()
-        
+        f = StringIO(history)
+        root = ET.parse(f).getroot()        
         r = []
         revisions = root.findall('revision')
         revisions.reverse()
@@ -352,7 +390,20 @@ class BuildServiceSource(PackageSource):
         for node in revisions:
             version = node.find('version').text
             break
-        
+        return version
+    
+    def version(self, package):
+        """
+        Returns the version for a package
+        Package must exist in packages()
+        """
+        h = self.get_source_file(package, "_history")
+        version = self.parse_version(h)
+        if version == "unknown":
+            # this means the project is a link
+            ret = self.get_linked_file(package, "_history")
+            h = self.get_project_source_file(ret[0], ret[1], "_history")
+            return self.parse_version(h)
         return version
 
 #get_submit_request_list(apiurl, project, package, req_state=('new')):
@@ -541,7 +592,7 @@ def createSourceFromUrl(url):
     if kind == "obs" or kind == "ibs" or kind == "ibssr" or kind == "obssr":
         # TODO automatically use internal if ibs or ibssr
         api = 'https://api.opensuse.org'
-        if name[0:5] == "SUSE:":
+        if kind == "ibs" or kind == "ibssr":
             api = "http://api.suse.de"
 
         if kind == "obs" or kind == "ibs":
