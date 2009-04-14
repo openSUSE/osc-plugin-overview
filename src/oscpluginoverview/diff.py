@@ -16,13 +16,16 @@ def diff_strings(oldstr, newstr):
         os.write(fd_new, newstr)
 
         try:
-            import commands
-            (code, output) = commands.getstatusoutput("diff -u -w %s %s" % (name_old, name_new))
-            if not (code/256):
-                raise Exception("diff returned non zero")
+            import subprocess
+            p = subprocess.Popen(["diff", "-u", '-w', name_old, name_new], stdout=subprocess.PIPE)
+            output = p.communicate()[0]
+            code = p.returncode
+            if code > 2:
+                raise Exception("diff returned error: %d" % code)
             return output
         except:
             print "Can't execute diff: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])
+            #raw_input("pause")
             exit(1)
     except:
         print "problem openting tempfile: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])

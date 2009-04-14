@@ -4,6 +4,7 @@ import os
 import rpm
 import oscpluginoverview.diff
 from cStringIO import StringIO
+import osc.core
 try:
     from xml.etree import cElementTree as ET
 except ImportError:
@@ -84,6 +85,20 @@ class View:
         print table.draw()
         print
 
+    def packageCompare(self, x, y):
+        """
+        Compares two packages based on version
+        If the versions are the same, tries to get the mtime of the
+        changes file
+
+        receives two tuples (repo, version) as input
+        """
+        res = rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1'))
+        if res == 0:
+            return res
+        else:
+            return res
+
     def changelogDiff(self):
         """
         Returns a diff with package changes
@@ -97,7 +112,7 @@ class View:
             # find higher version per package and where does it come from
             # map package to bigger version
             for package, repovers in self.versions_rev.items():
-                res = sorted(repovers.items(), lambda x,y: rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1')) )
+                res = sorted(repovers.items(), self.packageCompare )
                 
                 # now we have a list of tuples (repo, version) for this package
                 # we find the last two and ask for the changes file
@@ -315,24 +330,7 @@ class BuildServiceSource(PackageSource):
     def label(self):
         return self.service + "/" + self.project
 
-    def get_linked_file(self, package, file):
-        """
-        return a tuple
-        project package file
-
-        with the original project
-        """
-        try:
-            link = self.get_source_file(package, '_link')
-            io = StringIO(link)
-            root = ET.parse(io).getroot()
-            srcprj = root.attrib["project"]
-            srcpkg = root.attrib["package"]
-            return (srcprj, srcpkg, file)
-        except urllib2.HTTPError, e:
-            return None
-
-    def get_project_source_file(self, project, package, file):
+    def get_project_source_file(self, project, package, file, rev=None):
         """
         Returns the content of a source file
         and expand links if necessary
@@ -343,7 +341,11 @@ class BuildServiceSource(PackageSource):
         import osc.core
         import osc.conf
         # There's got to be a more efficient way to do this :(
-        u = osc.core.makeurl(self.service, ['source', project, package, file])
+
+        query = None
+        if rev:
+            query = { 'rev': rev }
+        u = osc.core.makeurl(self.service, ['source', project, package, file], query=query)
         f = None
         try:
             f = osc.core.http_GET(u)
@@ -352,18 +354,16 @@ class BuildServiceSource(PackageSource):
             # ok may be it is a source link and this utterly sucks
             # but lets add some AI
             try:
-                ret = self.get_linked_file(package, file)
-                u = osc.core.makeurl(self.service, ['source', ret[0], ret[1], ret[2]])
-                f = osc.core.http_GET(u)
-                return f.read()
+                li = self.link_info(self.service, self.project, package)
+                content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
+                return content
             except urllib2.HTTPError, e:
                  # now really give up
                  print "Cannot get source file from: %s" % u
-                 exit(1)        
-        return None
+                 exit(1)
 
-    def get_source_file(self, package, file):
-        return self.get_project_source_file(self.project, package, file)
+    def get_source_file(self, package, file, rev=None):
+        return self.get_project_source_file(self.project, package, file, rev)
     
     def changelog(self, package):
         """
@@ -391,22 +391,36 @@ class BuildServiceSource(PackageSource):
             version = node.find('version').text
             break
         return version
+
+    def link_info(self, apiurl, prj, pac):
+        m = osc.core.show_files_meta(apiurl, prj, pac)
+        try:
+            # only source link packages have a <linkinfo> element.
+            li_node = ET.parse(StringIO(''.join(m))).getroot().find('linkinfo')
+        except:
+            return None
+
+        li = osc.core.Linkinfo()
+        li.read(li_node)
+
+        if li.haserror():
+            raise oscerr.LinkExpandError, li.error
+        else:
+            return li
     
     def version(self, package):
         """
         Returns the version for a package
         Package must exist in packages()
         """
-        h = self.get_source_file(package, "_history")
-        version = self.parse_version(h)
+        history = self.get_project_source_file(self.project, package, "_history")
+        version = self.parse_version(history)
         if version == "unknown":
-            # this means the project is a link
-            ret = self.get_linked_file(package, "_history")
-            h = self.get_project_source_file(ret[0], ret[1], "_history")
-            return self.parse_version(h)
+            # may be it is a link
+            li = self.link_info(self.service, self.project, package)
+            history = self.get_project_source_file(li.project, li.package, "_history", li.xsrcmd5)
+            return self.parse_version(history)
         return version
-
-#get_submit_request_list(apiurl, project, package, req_state=('new')):
 
 class BuildServicePendingRequestsSource(PackageSource):
     """
