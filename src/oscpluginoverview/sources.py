@@ -149,7 +149,7 @@ class View:
 
     def printPatchinfo(self):
         import oscpluginoverview.patchinfo
-        print oscpluginoverview.patchinfo.patchinfo_from_changelog(self.changelogDiff(), self.changelog_packages, "me@me.com")
+        print oscpluginoverview.patchinfo.patchinfo_from_changelog(self.changelogDiff(), self.repos, self.changelog_packages)
 
     def readConfig(self):
         config = self.config
