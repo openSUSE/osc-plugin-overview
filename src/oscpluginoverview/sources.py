@@ -337,7 +337,7 @@ class BuildServiceSource(PackageSource):
     def label(self):
         return self.service + "/" + self.project
 
-    def get_project_source_file(self, project, package, file, rev=None):
+    def get_project_source_file(self, project, package, file, revision=None):
         """
         Returns the content of a source file
         and expand links if necessary
@@ -350,10 +350,15 @@ class BuildServiceSource(PackageSource):
         # There's got to be a more efficient way to do this :(
 
         query = None
-        if rev:
-            query = { 'rev': rev }
-        u = osc.core.makeurl(self.service, ['source', project, package, file], query=query)
-        f = None
+        if revision:
+            query = { 'rev': revision }
+        # workaround
+        u = None
+        if query:
+            u = osc.core.makeurl(self.service, ['source', project, package, file], query=query)
+        else:
+            u = osc.core.makeurl(self.service, ['source', project, package, file])
+            
         try:
             f = osc.core.http_GET(u)
             return f.read()
@@ -425,7 +430,8 @@ class BuildServiceSource(PackageSource):
         li.read(li_node)
 
         if li.haserror():
-            raise oscerr.LinkExpandError, li.error
+            return None
+            #raise oscerr.LinkExpandError, li.error
         else:
             return li
     
@@ -439,6 +445,8 @@ class BuildServiceSource(PackageSource):
         if version == "unknown":
             # may be it is a link
             li = self.link_info(self.service, self.project, package)
+            if not li or not li.islink():
+                return None
             history = self.get_project_source_file(li.project, li.package, "_history", li.xsrcmd5)
             return self.parse_version(history)
         return version
