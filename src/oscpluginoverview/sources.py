@@ -10,7 +10,7 @@ try:
 except ImportError:
     import cElementTree as ET
 
-# if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :  
+# if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :
 
 class View:
     """
@@ -76,7 +76,7 @@ class View:
                 else:
                     row.append(v)
             rows.append(row)
-            
+
         #versions[repo] = version
         #row.append(version)
         #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
@@ -92,11 +92,11 @@ class View:
         changes file
 
         receives two tuples (repo, version) as input
-        """ 
+        """
         res = rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1'))
         # only fetch mtimes if the package is in the repo
         if res == 0 and x[1] and y[1]:
-            return cmp(self.data[x[0]].mtime(package), self.data[y[0]].mtime(package)) 
+            return cmp(self.data[x[0]].mtime(package), self.data[y[0]].mtime(package))
         else:
             return res
 
@@ -106,7 +106,7 @@ class View:
         (obtained from the .changes file) of the whole
         group. The 2 newer versions are used to compare
         """
-        
+
         if not self.changelog:
             file_str = StringIO()
 
@@ -114,7 +114,7 @@ class View:
             # map package to bigger version
             for package, repovers in self.versions_rev.items():
                 res = sorted(repovers.items(), lambda x,y: self.packageCompare(package,x,y) )
-                
+
                 # now we have a list of tuples (repo, version) for this package
                 # we find the last two and ask for the changes file
                 if len(res) >= 2:
@@ -135,14 +135,14 @@ class View:
                         else:
                             # if it is none, continue
                             continue
-                        
+
                     else:
                         pass
             self.changelog = file_str.getvalue()
         # if the changelog was cached
         # just return it
         return self.changelog
-            
+
     def printChangelog(self):
         print self.changelogDiff()
         pass
@@ -154,12 +154,12 @@ class View:
     def readConfig(self):
         config = self.config
         view = self.name
-        
+
         if config.has_option(view, 'repos'):
             self.repos = config.get(view,'repos').split(',')
             if len(self.repos) == 0:
                 return
-            
+
             for repo in self.repos:
                 # resolve the repo uri to a data source object
                 import oscpluginoverview.sources
@@ -191,7 +191,7 @@ class View:
                             packageExists = True
                     except:
                         packageExists = True
-                        
+
                     if packageExists:
                         version = self.data[repo].version(package)
                     else:
@@ -223,10 +223,10 @@ class View:
                             # yes, enable the row
                             if (rpm.labelCompare((None, str(v), '1'), (None, str(baseversion), '1')) == 1) and cmprepo != oldfilterrepo:
                                 showrow = True
-                
+
                 # append to the filter if it should not be shown
                 if not showrow:
-                    self.filter.append(package)            
+                    self.filter.append(package)
         else:
             print "No repos defined for %s" % view
             return
@@ -241,7 +241,7 @@ def evalMacro(repos, data, expr):
     *x package list of repos in position x
 
     returns an ordered list of strings
-    """    
+    """
     import re
     ret = []
     components = expr.split(',')
@@ -298,7 +298,7 @@ class CachedSource(PackageSource):
     Wrapper that provides cache services to
     an existing source
     """
-    
+
     def __init__(self, source):
         self.source = source
         self.pkglist = None
@@ -343,7 +343,7 @@ class BuildServiceSource(PackageSource):
         and expand links if necessary
 
         if the file is not found, we fallback looking if the
-        file is a linked package        
+        file is a linked package
         """
         import osc.core
         import osc.conf
@@ -358,7 +358,7 @@ class BuildServiceSource(PackageSource):
             u = osc.core.makeurl(self.service, ['source', project, package, file], query=query)
         else:
             u = osc.core.makeurl(self.service, ['source', project, package, file])
-            
+
         try:
             f = osc.core.http_GET(u)
             return f.read()
@@ -376,7 +376,7 @@ class BuildServiceSource(PackageSource):
 
     def get_source_file(self, package, file, rev=None):
         return self.get_project_source_file(self.project, package, file, rev)
-    
+
     def changelog(self, package):
         """
         Returns the changelog of a package
@@ -397,7 +397,7 @@ class BuildServiceSource(PackageSource):
         except:
             return 0
         return mtime
-    
+
     def packages(self):
         import osc.core
         return  osc.core.meta_get_packagelist(self.service, self.project)
@@ -408,7 +408,7 @@ class BuildServiceSource(PackageSource):
         Package must exist in packages()
         """
         f = StringIO(history)
-        root = ET.parse(f).getroot()        
+        root = ET.parse(f).getroot()
         r = []
         revisions = root.findall('revision')
         revisions.reverse()
@@ -434,7 +434,7 @@ class BuildServiceSource(PackageSource):
             #raise oscerr.LinkExpandError, li.error
         else:
             return li
-    
+
     def version(self, package):
         """
         Returns the version for a package
@@ -447,7 +447,19 @@ class BuildServiceSource(PackageSource):
             li = self.link_info(self.service, self.project, package)
             if not li or not li.islink():
                 return None
-            history = self.get_project_source_file(li.project, li.package, "_history", li.xsrcmd5)
+            # ma@:
+            # According to mls@ the li.xsrcmd5 is not the right checksum. He
+            # suggests to get the complete history, and get the version of entry
+            # li.rev. Unfortunately osc.core.Linkinfo does not provide it ;(
+            #
+            # Appart from that, osc should be able to publish the version that is actually
+            # used for building. Then we could stop all this link evaluation here.
+            #
+            # Disable the li.xsrcmd5 argument because this does not check the link, but
+            # fails if the source and target package names differ, like in:
+            #  obs://openSUSE:11.0:Update/yast2-pkg-bindings -> yast2-pkg-bindings-devel-doc
+            #
+            history = self.get_project_source_file(li.project, li.package, "_history") # , li.xsrcmd5)
             return self.parse_version(history)
         return version
 
@@ -457,14 +469,14 @@ class BuildServicePendingRequestsSource(PackageSource):
     against a build service project
     So you can see what is pending.
     """
-    
+
     # cache service/repo -> list
     _packagelist = {}
     _srlist = {}
 
     def label(self):
         return "submit requests"
-    
+
     def __init__(self, service, project):
         self.service = service
         self.project = project
@@ -483,9 +495,9 @@ class BuildServicePendingRequestsSource(PackageSource):
                 srlist.append(req)
                 # cache the packages only too
                 pkglist.append(req.src_package)
-        
+
         return BuildServicePendingRequestsSource._packagelist[key]
-        
+
     def version(self, package):
         try:
             from xml.etree import cElementTree as ET
@@ -506,9 +518,9 @@ class BuildServicePendingRequestsSource(PackageSource):
                 except urllib2.HTTPError, e:
                     print "Cannot get package info from: %s" % u
                     exit(1)
-        
+
                 root = ET.parse(f).getroot()
-        
+
                 r = []
                 revisions = root.findall('revision')
                 revisions.reverse()
@@ -523,7 +535,7 @@ class BuildServicePendingRequestsSource(PackageSource):
                         version = node.find('version').text
                         return version
         return None
-    
+
 
 
 class GemSource(PackageSource):
@@ -560,12 +572,12 @@ class GemSource(PackageSource):
             except Exception:
             #print e
                 raise Exception("Unexpected error: %s" % sys.exc_info()[0])
-        
+
     def packages(self):
         # return the cache entry
         self.readGemsOnce()
         return self.gems.keys()
-    
+
     def version(self, package):
         """
         Returns the version for a package
@@ -585,7 +597,7 @@ class FreshmeatSource(PackageSource):
 
     def label(self):
         return "freshmeat"
-    
+
     def _keynat(self, string):
         r = []
         for c in string:
@@ -624,14 +636,14 @@ class FreshmeatSource(PackageSource):
         return self._fetch(package)
     pass
 
-    
+
 def createSourceFromUrl(url):
     try:
         kind, name = url.split('://')
     except ValueError:
         print "invalid origin format: %s" % url
         exit(1)
-        
+
     if kind == "obs" or kind == "ibs" or kind == "ibssr" or kind == "obssr":
         # TODO automatically use internal if ibs or ibssr
         api = 'https://api.opensuse.org'
@@ -651,5 +663,5 @@ def createSourceFromUrl(url):
             raise "Unsupported source type %s: you must install the package python-beautifulsoup first" % kind
         return CachedSource(FreshmeatSource())
 
-    
+
     raise "Unsupported source type %s" % url
