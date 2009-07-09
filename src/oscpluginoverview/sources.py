@@ -488,13 +488,15 @@ class BuildServicePendingRequestsSource(PackageSource):
             BuildServicePendingRequestsSource._srlist[key] = []
             import osc.core
             # we use empty package to get all
-            requests =  osc.core.get_submit_request_list(self.service, self.project, '', req_state=('new'))
+            requests =  osc.core.get_request_list(self.service, self.project, '', '', req_state=('new',))
             srlist = BuildServicePendingRequestsSource._srlist[key]
             pkglist = BuildServicePendingRequestsSource._packagelist[key]
             for req in requests:
                 srlist.append(req)
                 # cache the packages only too
-                pkglist.append(req.src_package)
+                for action in req.actions:
+                    # ??? or better a set of packages
+                    pkglist.append(action.dst_package)
 
         return BuildServicePendingRequestsSource._packagelist[key]
 
@@ -509,7 +511,8 @@ class BuildServicePendingRequestsSource(PackageSource):
         # just to make sure the info gets cached
         self.packages()
         key = self.service + "/" + self.project
-        for req in BuildServicePendingRequestsSource._srlist[key]:
+        for request in BuildServicePendingRequestsSource._srlist[key]:
+          for req in request.actions:
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
                 u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'])
@@ -527,11 +530,7 @@ class BuildServicePendingRequestsSource(PackageSource):
                 version = 0
                 for node in revisions:
                     md5 = node.find('srcmd5').text
-                    #print md5
-                    #print req.src_md5
-
-                    if md5 == req.src_md5:
-                        print "found %s" % u
+                    if md5 == req.src_rev:
                         version = node.find('version').text
                         return version
         return None
