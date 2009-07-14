@@ -29,16 +29,16 @@ def _changes(self, group):
 def _overview(self, group, opts):
     import ConfigParser
     import oscpluginoverview.sources
-    
+
     config = ConfigParser.ConfigParser()
-        
+
     config.read(os.path.expanduser("~/.osc-overview/%s.ini" % group ))
 
     for secname in config.sections():
         view = oscpluginoverview.sources.View(secname, config)
         view.readConfig()
         view.printTable()
-        if opts.changelog:
+        if opts.changelog or view.showChanges == "1":
             view.printChangelog()
         if opts.patchinfo:
             view.printPatchinfo()
@@ -79,7 +79,7 @@ def do_overview(self, subcmd, opts, *args):
     cfgfiles = os.listdir(os.path.expanduser('~/.osc-overview'))
     for cfg in cfgfiles:
         cmds.append(os.path.basename(cfg.replace('.ini','')))
-    
+
     if not args or not os.path.exists(os.path.expanduser('~/.osc-overview/%s.ini' % args[0]) ):
         raise oscerr.WrongArgs('Unknown action. Choose one of: %s.' \
                                            % ', '.join(cmds))

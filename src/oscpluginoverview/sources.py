@@ -35,6 +35,8 @@ class View:
         self.filter = []
         # the changelog of the whole view
         self.changelog = None
+        # changes= option from ini file
+        self.showChanges = 0
         pass
 
     def setVersionForPackage(self, repo, package, version):
@@ -165,6 +167,8 @@ class View:
                 import oscpluginoverview.sources
                 self.data[repo] = oscpluginoverview.sources.createSourceFromUrl(repo)
 
+            if config.has_option(view, 'changes'):
+                self.showChanges = config.get(view,'changes')
             if config.has_option(view, 'packages'):
                 # resolve the packages list or macro
                 pkgopt = config.get(view,'packages')
