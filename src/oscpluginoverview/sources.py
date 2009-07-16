@@ -492,7 +492,7 @@ class BuildServicePendingRequestsSource(PackageSource):
             BuildServicePendingRequestsSource._srlist[key] = []
             import osc.core
             # we use empty package to get all
-            requests =  osc.core.get_request_list(self.service, self.project, '', '', req_state=('new',))
+            requests =  osc.core.get_request_list(self.service, self.project, '', '', req_state=('new',), req_type='submit' )
             srlist = BuildServicePendingRequestsSource._srlist[key]
             pkglist = BuildServicePendingRequestsSource._packagelist[key]
             for req in requests:
@@ -533,10 +533,11 @@ class BuildServicePendingRequestsSource(PackageSource):
                 revisions.reverse()
                 version = 0
                 for node in revisions:
-                    md5 = node.find('srcmd5').text
-                    if md5 == req.src_rev:
+                    rev = node.get('rev')
+                    if rev == req.src_rev:
                         version = node.find('version').text
-                        return version
+                        return "%s\n#%s" % (version,request.reqid)
+                return "rev %s\n#%s" % (req.src_rev,request.reqid)
         return None
 
 
