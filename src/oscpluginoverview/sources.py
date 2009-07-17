@@ -126,13 +126,23 @@ class View:
                             # ok we can do a diff
                             reponew = res[len(res)-1][0]
                             repoold = res[len(res)-2][0]
-                            self.changelog_packages.append(package)
-                            file_str.write("------- %s ( %s vs %s )" % (package, reponew, repoold))
-                            file_str.write("\n")
+                            # changelog may return None if no changes supported
+                            # like with obs request sources.
                             changesnew = self.data[reponew].changelog(package)
+                            if changesnew == None:
+                              continue
                             changesold = self.data[repoold].changelog(package)
-
-                            file_str.write(oscpluginoverview.diff.diff_strings(changesold, changesnew))
+                            if changesold == None:
+                              continue
+                            self.changelog_packages.append(package)
+                            changesdiff = oscpluginoverview.diff.diff_strings(changesold, changesnew)
+                            if not changesdiff:
+                              # suppress emty diffs
+                              continue
+                            file_str.write("+--------------------------------------------------------------------------+\n")
+                            file_str.write("------- %s ( %s vs %s )\n" % (package, reponew, repoold))
+                            file_str.write("+--------------------------------------------------------------------------+\n")
+                            file_str.write(changesdiff)
                             file_str.write("\n")
                         else:
                             # if it is none, continue
@@ -540,6 +550,8 @@ class BuildServicePendingRequestsSource(PackageSource):
                 return "rev %s\n#%s" % (req.src_rev,request.reqid)
         return None
 
+    def changelog(self, package):
+        return None
 
 
 class GemSource(PackageSource):
