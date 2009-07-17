@@ -20,6 +20,8 @@ def diff_strings(oldstr, newstr):
             p = subprocess.Popen(["diff", "-u", '-w', name_old, name_new], stdout=subprocess.PIPE)
             output = p.communicate()[0]
             code = p.returncode
+            os.unlink(name_new)
+            os.unlink(name_old)
             if code > 2:
                 raise Exception("diff returned error: %d" % code)
             return output
@@ -28,7 +30,7 @@ def diff_strings(oldstr, newstr):
             #raw_input("pause")
             exit(1)
     except:
-        print "problem openting tempfile: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])
+        print "problem opening tempfile: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])
         exit(1)
     else:
         file_new.close()
