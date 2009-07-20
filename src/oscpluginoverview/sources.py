@@ -111,6 +111,7 @@ class View:
 
         if not self.changelog:
             file_str = StringIO()
+            file_str.write("Looking for changes..\n")
 
             # find higher version per package and where does it come from
             # map package to bigger version
@@ -118,38 +119,47 @@ class View:
                 res = sorted(repovers.items(), lambda x,y: self.packageCompare(package,x,y) )
 
                 # now we have a list of tuples (repo, version) for this package
-                # we find the last two and ask for the changes file
+                # we find the last two and ask for the changes file. Take care
+                # the package version is not None, and also the changelog isn't.
+                # Changelog None indicates the repo does not provide changes (obssr://).
                 if len(res) >= 2:
-                    # check that the bigger is not none
-                    if res[len(res)-1][1]:
-                        if res[len(res)-2][1]:
-                            # ok we can do a diff
-                            reponew = res[len(res)-1][0]
-                            repoold = res[len(res)-2][0]
-                            # changelog may return None if no changes supported
-                            # like with obs request sources.
+                    idx = len(res)-1
+                    changesnew = None
+                    reponew = None
+                    while idx >= 0:
+                        if res[idx][1]:
+                            reponew = res[idx][0]
                             changesnew = self.data[reponew].changelog(package)
-                            if changesnew == None:
-                              continue
-                            changesold = self.data[repoold].changelog(package)
-                            if changesold == None:
-                              continue
-                            self.changelog_packages.append(package)
-                            changesdiff = oscpluginoverview.diff.diff_strings(changesold, changesnew)
-                            if not changesdiff:
-                              # suppress emty diffs
-                              continue
-                            file_str.write("+--------------------------------------------------------------------------+\n")
-                            file_str.write("------- %s ( %s vs %s )\n" % (package, reponew, repoold))
-                            file_str.write("+--------------------------------------------------------------------------+\n")
-                            file_str.write(changesdiff)
-                            file_str.write("\n")
-                        else:
-                            # if it is none, continue
-                            continue
+                        idx -= 1
+                        if changesnew != None:
+                            break
+                    if changesnew == None:
+                        continue
 
-                    else:
-                        pass
+                    changesold = None
+                    repoold = None
+                    while idx >= 0:
+                        if res[idx][1]:
+                            repoold = res[idx][0]
+                            changesold = self.data[repoold].changelog(package)
+                        idx -= 1
+                        if changesold != None:
+                            break
+                    if changesold == None:
+                        continue
+
+                    self.changelog_packages.append(package)
+                    changesdiff = oscpluginoverview.diff.diff_strings(changesold, changesnew)
+                    if not changesdiff:
+                        # suppress empty diffs
+                        continue
+
+                    file_str.write("+--------------------------------------------------------------------------+\n")
+                    file_str.write("------- %s ( %s vs %s )\n" % (package, reponew, repoold))
+                    file_str.write("+--------------------------------------------------------------------------+\n")
+                    file_str.write(changesdiff)
+                    file_str.write("\n")
+
             self.changelog = file_str.getvalue()
         # if the changelog was cached
         # just return it
