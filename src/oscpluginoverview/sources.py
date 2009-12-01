@@ -535,6 +535,7 @@ class BuildServicePendingRequestsSource(PackageSource):
         # just to make sure the info gets cached
         self.packages()
         key = self.service + "/" + self.project
+        ret = None
         for request in BuildServicePendingRequestsSource._srlist[key]:
           for req in request.actions:
             if req.src_package == package:
@@ -552,13 +553,14 @@ class BuildServicePendingRequestsSource(PackageSource):
                 revisions = root.findall('revision')
                 revisions.reverse()
                 version = 0
+                ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
+                # maybe we can even figure out the version...
                 for node in revisions:
                     rev = node.get('rev')
                     if rev == req.src_rev:
                         version = node.find('version').text
-                        return "%s\n#%s" % (version,request.reqid)
-                return "rev %s\n#%s" % (req.src_rev,request.reqid)
-        return None
+                        ret = "%s\nrev %s\n#%s" % (version,req.src_rev,request.reqid)
+        return ret
 
     def changelog(self, package):
         return None
