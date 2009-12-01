@@ -24,7 +24,7 @@ Example:
     table = Texttable()
     table.set_cols_align(["l", "r", "c"])
     table.set_cols_valign(["t", "m", "b"])
-    table.add_rows([ ["Name", "Age", "Nickname"], 
+    table.add_rows([ ["Name", "Age", "Nickname"],
                      ["Mr\\nXavier\\nHuon", 32, "Xav'"],
                      ["Mr\\nBaptiste\\nClement", 1, "Baby"] ])
     print table.draw()
@@ -60,6 +60,7 @@ Anonymous:
 """
 
 import sys
+import os
 import string
 
 try:
@@ -77,6 +78,10 @@ try:
     True, False
 except NameError:
     (True, False) = (1, 0)
+
+def getTerminalWidth():
+    rows, columns = os.popen('stty size', 'r').read().split()
+    return int( columns )
 
 class ArraySizeError(Exception):
     """Exception raised when specified rows don't fit the required size
@@ -96,7 +101,7 @@ class Texttable:
     HLINES = 1 << 2
     VLINES = 1 << 3
 
-    def __init__(self, max_width=80):
+    def __init__(self, max_width=getTerminalWidth()):
         """Constructor
 
         - max_width is an integer, specifying the maximum width of the table
@@ -147,7 +152,7 @@ class Texttable:
           of the table
         """
 
-        # nb: don't use 'iter' on by-dimensional arrays, to get a 
+        # nb: don't use 'iter' on by-dimensional arrays, to get a
         #     usable code for python 2.1
         if header:
             if hasattr(rows, '__iter__') and hasattr(rows, 'next'):
@@ -451,7 +456,7 @@ if __name__ == '__main__':
     table = Texttable()
     table.set_cols_align(["l", "r", "c"])
     table.set_cols_valign(["t", "m", "b"])
-    table.add_rows([ ["Name", "Age", "Nickname"], 
+    table.add_rows([ ["Name", "Age", "Nickname"],
                      ["Mr\nXavier\nHuon", 32, "Xav'"],
                      ["Mr\nBaptiste\nClement", 1, "Baby"] ])
     print table.draw()
