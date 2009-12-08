@@ -438,8 +438,9 @@ class BuildServiceSource(PackageSource):
         revisions.reverse()
         version = 0
         for node in revisions:
-            version = node.find('version').text
+            version = "%s\nrev %s" % (node.find('version').text, node.get('rev'))
             break
+
         return version
 
     def link_info(self, apiurl, prj, pac):
@@ -506,23 +507,10 @@ class BuildServicePendingRequestsSource(PackageSource):
         self.project = project
 
     def packages(self):
-        key = self.service + "/" + self.project
-        if not BuildServicePendingRequestsSource._packagelist.has_key(key):
-            BuildServicePendingRequestsSource._packagelist[key] = []
-            BuildServicePendingRequestsSource._srlist[key] = []
-            import osc.core
-            # we use empty package to get all
-            requests =  osc.core.get_request_list(self.service, self.project, '', '', req_state=('new',), req_type='submit' )
-            srlist = BuildServicePendingRequestsSource._srlist[key]
-            pkglist = BuildServicePendingRequestsSource._packagelist[key]
-            for req in requests:
-                srlist.append(req)
-                # cache the packages only too
-                for action in req.actions:
-                    # ??? or better a set of packages
-                    pkglist.append(action.dst_package)
-
-        return BuildServicePendingRequestsSource._packagelist[key]
+        raise Exception('No package list')
+        # As version() now either shows a new or the last accepted request,
+        # caching all requests of a project would be too expensive. Version()
+        # now directly retrieves the requests for a given package.
 
     def version(self, package):
         try:
@@ -531,36 +519,69 @@ class BuildServicePendingRequestsSource(PackageSource):
             import cElementTree as ET
 
         import osc.core
-        #import osc.conf
-        # just to make sure the info gets cached
-        self.packages()
         key = self.service + "/" + self.project
         ret = None
-        for request in BuildServicePendingRequestsSource._srlist[key]:
+
+        # first check for new requests
+	rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('new',), req_type='submit' )
+        rqlist.reverse()
+        for request in rqlist:
           for req in request.actions:
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
-                u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'])
+                ret = "rev %s\n#%s (NEW)" % (req.src_rev,request.reqid)
+                revisions = {}
                 try:
+                    # TODO: should be possible to directly query histpry for a specific revision '__history?rev=378'
+                    u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'])
                     f = osc.core.http_GET(u)
+                    root = ET.parse(f).getroot()
+                    revisions = root.findall('revision')
+                    revisions.reverse()
                 except urllib2.HTTPError, e:
                     print "Cannot get package info from: %s" % u
-                    exit(1)
+                    #exit(1)
 
-                root = ET.parse(f).getroot()
-
-                r = []
-                revisions = root.findall('revision')
-                revisions.reverse()
                 version = 0
-                ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
                 # maybe we can even figure out the version...
                 for node in revisions:
                     rev = node.get('rev')
                     if rev == req.src_rev:
                         version = node.find('version').text
-                        ret = "%s\nrev %s\n#%s" % (version,req.src_rev,request.reqid)
-        return ret
+                        return "%s\nrev %s\n#%s (NEW)" % (version,req.src_rev,request.reqid)
+                return ret
+
+        # no new request then check last accepted: (TODO remove duplicate code here and loop above)
+        rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('accepted',), req_type='submit' )
+        rqlist.reverse()
+        for request in rqlist:
+          #print "REQ %s %s" % (request.reqid,request.state.name)
+          for req in request.actions:
+            #print "  A %s %s %s %s" % (req.type,req.src_project,req.dst_project,req.src_rev)
+            if req.src_package == package:
+                # now look for the revision in the history to figure out the version
+                ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
+                revisions = {}
+                try:
+                    u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'] )
+                    f = osc.core.http_GET(u)
+                    root = ET.parse(f).getroot()
+                    revisions = root.findall('revision')
+                    revisions.reverse()
+                except urllib2.HTTPError, e:
+                    print "Cannot get package info from: %s" % u
+                    #exit(1)
+
+                version = 0
+                # maybe we can even figure out the version...
+                for node in revisions:
+                    rev = node.get('rev')
+                    #print "%s %s" %(rev,req.src_rev)
+                    if rev == req.src_rev:
+                        version = node.find('version').text
+                        return "%s\nrev %s\n#%s" % (version,req.src_rev,request.reqid)
+                return ret
+        return "-"
 
     def changelog(self, package):
         return None
