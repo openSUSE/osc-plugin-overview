@@ -523,13 +523,13 @@ class BuildServicePendingRequestsSource(PackageSource):
         ret = None
 
         # first check for new requests
-	rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('new',), req_type='submit' )
+	rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('new','review'), req_type='submit' )
         rqlist.reverse()
         for request in rqlist:
           for req in request.actions:
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
-                ret = "rev %s\n#%s (NEW)" % (req.src_rev,request.reqid)
+                ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
                 revisions = {}
                 try:
                     # TODO: should be possible to directly query histpry for a specific revision '__history?rev=378'
@@ -548,7 +548,7 @@ class BuildServicePendingRequestsSource(PackageSource):
                     rev = node.get('rev')
                     if rev == req.src_rev:
                         version = node.find('version').text
-                        return "%s\nrev %s\n#%s (NEW)" % (version,req.src_rev,request.reqid)
+                        return "%s\nrev %s\n#%s (%s)" % (version,req.src_rev,request.reqid,request.state.name)
                 return ret
 
         # no new request then check last accepted: (TODO remove duplicate code here and loop above)
