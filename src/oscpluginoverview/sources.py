@@ -55,6 +55,8 @@ class View:
         #print ",".join(self.filter)
         from oscpluginoverview.texttable import Texttable
         table = Texttable()
+	table.set_attr( 'G', 0 )
+	table.set_attr( 'B', None, 0 )
         rows = []
 
         header = []
@@ -71,12 +73,17 @@ class View:
                 continue
             row = []
             row.append(p)
+	    cmp = None
             for r in self.repos:
                 v = self.versions[r][p]
                 if v == None:
-                    row.append('-')
-                else:
-                    row.append(v)
+		    v = '-'
+		if cmp == None:
+		    cmp = v
+		else:
+		    if not v.startswith( cmp ):
+		      table.set_attr( 'R', len(rows), len(row) )
+		row.append(v)
             rows.append(row)
 
         #versions[repo] = version

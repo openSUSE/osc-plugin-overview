@@ -101,6 +101,16 @@ class Texttable:
     HLINES = 1 << 2
     VLINES = 1 << 3
 
+    _attr_val = {
+      'R':'\033[0;31m',
+      'G':'\033[0;32m',
+      'B':'\033[0;34m',
+      'C':'\033[0;36m',
+      'M':'\033[0;35m',
+      'Y':'\033[0;33m',
+      None:'\033[0m'
+    }
+
     def __init__(self, max_width=getTerminalWidth()):
         """Constructor
 
@@ -126,6 +136,7 @@ class Texttable:
         self._row_size = None
         self._header = []
         self._rows = []
+        self._attr = {}
 
     def header(self, array):
         """Specify the header of the table
@@ -162,6 +173,19 @@ class Texttable:
                 rows = rows[1:]
         for row in rows:
             self.add_row(row)
+
+    def set_attr(self, attr, row = None, col = None ):
+	"""Define clell colors (RGBCMY)
+	- set_attr( 'R' )		- default to 'R' for all cells
+	- set_attr( 'R', r )		- 'R' for all cells in row r
+	- set_attr( 'R', None, c )	- 'R' for all cells in col c
+	- set_attr( 'R', r, c )		- 'R' for cell (r,c)
+	"""
+	if not self._attr.has_key( row ):
+	  self._attr[row] = {}
+	self._attr[row][col] = attr
+	print "@@ %s %s %s" % ( row, col, attr )
+
 
     def set_chars(self, array):
         """Set the characters used to draw lines between rows and columns
@@ -255,6 +279,7 @@ class Texttable:
             return
         self._compute_cols_width()
         self._check_align()
+	self._draw_line_num = 0; # increment in _draw_line
         out = ""
         if self._has_border():
             out += self._hline()
@@ -394,6 +419,32 @@ class Texttable:
         if not hasattr(self, "_valign"):
             self._valign = ["t"]*self._row_size
 
+    def _set_cell_attr( self, row, col, text ):
+	#cell_line = "\033[0;31m%s\033[0m" % cell_line
+	if len( self._attr ) == 0:
+	  return text
+
+	a = None
+	if self._attr.has_key( row ):
+	  r = self._attr[row]
+	  if r.has_key( col ):
+	    a = r[col]
+	  elif r.has_key( None ):
+	    a = r[None]
+
+	if a == None and  self._attr.has_key( None ):
+	  r = self._attr[None]
+	  if r.has_key( col ):
+	    a = r[col]
+	  elif r.has_key( None ):
+	    a = r[None]
+
+	if a == None or not self._attr_val.has_key( a ):
+	  return text
+
+	text = "%s%s%s" % ( self._attr_val[a], text,  self._attr_val[None] )
+	return text
+
     def _draw_line(self, line, isheader=False):
         """Draw a line
 
@@ -408,9 +459,9 @@ class Texttable:
                 out += "%s " % self._char_vert
             length = 0
             for cell, width, align in zip(line, self._width, self._align):
-                length += 1
                 cell_line = cell[i]
                 fill = width - len(cell_line)
+		cell_line = self._set_cell_attr( self._draw_line_num, length, cell_line )
                 if isheader:
                     align = "c"
                 if align == "r":
@@ -420,9 +471,11 @@ class Texttable:
                             + (fill/2 + fill%2) * space)
                 else:
                     out += "%s " % (cell_line + fill * space)
+                length += 1
                 if length < len(line):
                     out += "%s " % [space, self._char_vert][self._has_vlines()]
             out += "%s\n" % ['', self._char_vert][self._has_border()]
+	self._draw_line_num+=1
         return out
 
     def _splitit(self, line, isheader):
