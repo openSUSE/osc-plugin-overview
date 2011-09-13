@@ -184,7 +184,6 @@ class Texttable:
 	if not self._attr.has_key( row ):
 	  self._attr[row] = {}
 	self._attr[row][col] = attr
-	print "@@ %s %s %s" % ( row, col, attr )
 
 
     def set_chars(self, array):
@@ -420,7 +419,6 @@ class Texttable:
             self._valign = ["t"]*self._row_size
 
     def _set_cell_attr( self, row, col, text ):
-	#cell_line = "\033[0;31m%s\033[0m" % cell_line
 	if len( self._attr ) == 0:
 	  return text
 
