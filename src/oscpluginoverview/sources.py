@@ -317,6 +317,9 @@ class PackageSource:
         """
         raise Exception("label not implemented")
 
+    def mtime(self, package):
+	raise Exception("querying package mtime from %s not supported. Use a different source" % self.label)
+
 class CachedSource(PackageSource):
     """
     Wrapper that provides cache services to
@@ -495,9 +498,7 @@ class BuildServicePendingRequestsSource(PackageSource):
     So you can see what is pending.
     """
 
-    # cache service/repo -> list
-    _packagelist = {}
-    _srlist = {}
+    # cache: package -> prj, ver, rev, req, rst
 
     def label(self):
         return "submit requests"
@@ -505,6 +506,7 @@ class BuildServicePendingRequestsSource(PackageSource):
     def __init__(self, service, project):
         self.service = service
         self.project = project
+        self._pkgversions = {}
 
     def packages(self):
         raise Exception('No package list')
@@ -513,6 +515,24 @@ class BuildServicePendingRequestsSource(PackageSource):
         # now directly retrieves the requests for a given package.
 
     def version(self, package):
+	d = self.cacheVersion( package )
+	#ret = "%s\nrev %s\n%s\n#%s" % ( d.get( 'ver', '-' ), d.get( 'rev', '-' ), d.get( 'prj', 'UNKNOWN PRJ' ), d.get( 'req', '-' ) )
+	ret = d.get( 'ver', '-' )
+	if d.has_key( 'rev' ):
+	  ret = "%s\nrev %s" % ( ret, d['rev'] )
+	if d.has_key( 'req' ):
+	  ret = "%s\n#%s" % ( ret, d['req'] )
+	  if d.has_key( 'rst' ):
+	    ret = "%s (%s)" % ( ret, d['rst'] )
+	return ret
+
+    def cacheVersion(self, package):
+	if self._pkgversions.has_key( package ):
+	  return self._pkgversions[package]
+
+	self._pkgversions[package] = {}
+	d = self._pkgversions[package]
+
         try:
             from xml.etree import cElementTree as ET
         except ImportError:
@@ -529,7 +549,12 @@ class BuildServicePendingRequestsSource(PackageSource):
           for req in request.actions:
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
-                ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
+                # ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
+		d['prj'] = req.src_project
+		#d['ver'] = '-'
+		d['rev'] = req.src_rev
+		d['req'] = request.reqid
+		d['rst'] = request.state.name
                 revisions = {}
                 try:
                     # TODO: should be possible to directly query histpry for a specific revision '__history?rev=378'
@@ -547,9 +572,9 @@ class BuildServicePendingRequestsSource(PackageSource):
                 for node in revisions:
                     rev = node.get('rev')
                     if rev == req.src_rev:
-                        version = node.find('version').text
-                        return "%s\nrev %s\n#%s (%s)" % (version,req.src_rev,request.reqid,request.state.name)
-                return ret
+                        d['ver'] = node.find('version').text
+                        return d
+		return d
 
         # no new request then check last accepted: (TODO remove duplicate code here and loop above)
         rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('accepted',), req_type='submit' )
@@ -560,8 +585,13 @@ class BuildServicePendingRequestsSource(PackageSource):
             #print "  A %s %s %s %s" % (req.type,req.src_project,req.dst_project,req.src_rev)
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
-                ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
-                revisions = {}
+                # ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
+		d['prj'] = req.src_project
+		#d['ver'] = '-'
+		d['rev'] = req.src_rev
+		d['req'] = request.reqid
+		#d['rst'] = ''
+		revisions = {}
                 try:
                     u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'] )
                     f = osc.core.http_GET(u)
@@ -578,14 +608,56 @@ class BuildServicePendingRequestsSource(PackageSource):
                     rev = node.get('rev')
                     #print "%s %s" %(rev,req.src_rev)
                     if rev == req.src_rev:
-                        version = node.find('version').text
-                        return "%s\nrev %s\n#%s" % (version,req.src_rev,request.reqid)
-                return ret
-        return "-"
+                        d['ver'] = node.find('version').text
+                        return d
+                return d
+        return d
+
+    def mtime(self, package):
+	return 0
 
     def changelog(self, package):
+	d = self.cacheVersion( package )
+	if d.has_key( 'prj' ) and d.has_key( 'rev' ):
+	  return self.get_project_source_file( d['prj'], package, "%s.changes" % package, d['rev'] )
         return None
 
+    def get_project_source_file(self, project, package, file, revision=None):
+        """
+        Returns the content of a source file
+        and expand links if necessary
+
+        if the file is not found, we fallback looking if the
+        file is a linked package
+        """
+        import osc.core
+        import osc.conf
+        # There's got to be a more efficient way to do this :(
+
+        query = None
+        if revision:
+            query = { 'rev': revision }
+        # workaround
+        u = None
+        if query:
+            u = osc.core.makeurl(self.service, ['source', project, package, file], query=query)
+        else:
+            u = osc.core.makeurl(self.service, ['source', project, package, file])
+
+        try:
+            f = osc.core.http_GET(u)
+            return f.read()
+        except urllib2.HTTPError, e:
+            # ok may be it is a source link and this utterly sucks
+            # but lets add some AI
+            try:
+                li = self.link_info(self.service, self.project, package)
+                content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
+                return content
+            except urllib2.HTTPError, e:
+                 # now really give up
+                 print "Cannot get source file from: %s" % u
+                 exit(1)
 
 class GemSource(PackageSource):
     """
@@ -697,7 +769,7 @@ def createSourceFromUrl(url):
         # TODO automatically use internal if ibs or ibssr
         api = 'https://api.opensuse.org'
         if kind == "ibs" or kind == "ibssr":
-            api = "http://api.suse.de"
+            api = "https://api.suse.de"
 
         if kind == "obs" or kind == "ibs":
             return CachedSource(BuildServiceSource(api, name))
