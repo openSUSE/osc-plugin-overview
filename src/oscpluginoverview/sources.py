@@ -542,6 +542,8 @@ class BuildServicePendingRequestsSource(PackageSource):
 	ret = d.get( 'ver', '-' )
 	if d.has_key( 'rev' ):
 	  ret = "%s\nrev %s" % ( ret, d['rev'] )
+	#if d.has_key( 'prj' ):
+	#  ret = "%s\n%s" % ( ret, d['prj'] )
 	if d.has_key( 'req' ):
 	  ret = "%s\n#%s" % ( ret, d['req'] )
 	  if d.has_key( 'rst' ):
@@ -574,7 +576,7 @@ class BuildServicePendingRequestsSource(PackageSource):
                 # ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
                 rsv = self.request_source_version( req, package )
 		d['prj'] = req.src_project
-		d['ver'] = rsv.get( 'ver', None )
+		d['ver'] = rsv.get( 'ver', req.src_project )
 		d['rev'] = rsv.get( 'rev', req.src_rev )
 		d['req'] = request.reqid
 		d['rst'] = request.state.name
@@ -592,7 +594,7 @@ class BuildServicePendingRequestsSource(PackageSource):
                 # ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
                 rsv = self.request_source_version( req, package )
 		d['prj'] = req.src_project
-		d['ver'] = rsv.get( 'ver', None )
+		d['ver'] = rsv.get( 'ver', req.src_project )
 		d['rev'] = rsv.get( 'rev', req.src_rev )
 		d['req'] = request.reqid
 		#d['rst'] = ''
@@ -615,6 +617,7 @@ class BuildServicePendingRequestsSource(PackageSource):
 	  revisions = {}
 	  try:
 	      u = osc.core.makeurl(src_service, ['source', src_project, package, '_history'])
+	      #print "URL %s" % u
 	      f = osc.core.http_GET(u)
 	      root = ET.parse(f).getroot()
 	      revisions = root.findall('revision')
@@ -624,6 +627,7 @@ class BuildServicePendingRequestsSource(PackageSource):
 
 	  # maybe we can even figure out the version...
 	  for node in revisions:
+	      #print "  - n %s %s %s" % ( node.get('rev'), node.find('version').text, node.find('srcmd5').text )
 	      if node.get('rev') == req.src_rev:
 		  ret['ver'] = node.find('version').text
 		  return ret
