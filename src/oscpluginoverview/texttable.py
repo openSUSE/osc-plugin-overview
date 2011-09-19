@@ -124,6 +124,7 @@ class Texttable:
         self._deco = Texttable.VLINES | Texttable.HLINES | Texttable.BORDER | \
             Texttable.HEADER
         self.set_chars(['-', '|', '+', '='])
+        self._use_color=True
         self.reset()
 
     def reset(self):
@@ -173,6 +174,10 @@ class Texttable:
                 rows = rows[1:]
         for row in rows:
             self.add_row(row)
+
+    def set_color( self, onoff ):
+	"""Define whether colors should be used when drawing the table."""
+	self._use_color = onoff
 
     def set_attr(self, attr, row = None, col = None ):
 	"""Define clell colors (RGBCMY)
@@ -419,12 +424,12 @@ class Texttable:
             self._valign = ["t"]*self._row_size
 
     def colorize_text( self, attr, text ):
-	if attr == None or not self._attr_val.has_key( attr ):
+	if not self._use_color or attr == None or not self._attr_val.has_key( attr ):
 	  return text
 	return "%s%s%s" % ( self._attr_val[attr], text,  self._attr_val[None] )
 
     def _set_cell_attr( self, row, col, text ):
-	if len( self._attr ) == 0:
+	if  not self._use_color or len( self._attr ) == 0:
 	  return text
 
 	a = None

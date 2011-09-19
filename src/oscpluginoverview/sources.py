@@ -37,6 +37,8 @@ class View:
         self.changelog = None
         # changes= option from ini file
         self.showChanges = 0
+        # -C --color or color option from ini file
+        self.colorize = False
         pass
 
     def setVersionForPackage(self, repo, package, version):
@@ -55,8 +57,9 @@ class View:
         #print ",".join(self.filter)
         from oscpluginoverview.texttable import Texttable
         table = Texttable()
-	table.set_attr( 'G', 0 )
-	table.set_attr( 'B', None, 0 )
+	table.set_color( self.colorize )
+	table.set_attr( 'G', 0 )	# green headline
+	table.set_attr( 'B', None, 0 )	# blue 1st col
         rows = []
 
         header = []
@@ -163,9 +166,11 @@ class View:
 
 		    from oscpluginoverview.texttable import Texttable
 		    table = Texttable()
-                    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
-                    file_str.write(table.colorize_text('B',"------- %s ( %s vs %s )\n" % (package, reponew, repoold)))
-                    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
+		    table.set_color( self.colorize )
+
+		    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
+		    file_str.write(table.colorize_text('B',"------- %s ( %s vs %s )\n" % (package, reponew, repoold)))
+		    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
                     file_str.write(changesdiff)
                     file_str.write("\n")
 
@@ -185,6 +190,9 @@ class View:
     def readConfig(self):
         config = self.config
         view = self.name
+
+        if config.has_option(view, 'color'):
+	  self.colorize = config.getboolean(view, 'color')
 
         if config.has_option(view, 'repos'):
             self.repos = config.get(view,'repos').split(',')

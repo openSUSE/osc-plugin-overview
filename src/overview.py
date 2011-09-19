@@ -31,12 +31,17 @@ def _overview(self, group, opts):
     import oscpluginoverview.sources
 
     config = ConfigParser.ConfigParser()
-
     config.read(os.path.expanduser("~/.osc-overview/%s.ini" % group ))
 
     for secname in config.sections():
+	if ( opts.color ):
+	    config.set( secname, 'color', 'True' )
+	if ( opts.no_color ):
+	    config.set( secname, 'color', 'False' )
+
         view = oscpluginoverview.sources.View(secname, config)
         view.readConfig()
+
         view.printTable()
         if opts.changelog or view.showChanges == "1":
             view.printChangelog()
@@ -48,6 +53,10 @@ def _overview(self, group, opts):
               help='Also output repo changelog')
 @cmdln.option('-p', '--patchinfo', action='store_true',
               help='Also output repo patchinfo file')
+@cmdln.option('', '--color', action='store_true',
+	      help='Colorize the output')
+@cmdln.option('', '--no-color', action='store_true',
+	      help='Don not colorize the output')
 
 
 def do_overview(self, subcmd, opts, *args):
@@ -56,15 +65,22 @@ def do_overview(self, subcmd, opts, *args):
     For a full description, read:
     http://en.opensuse.org/Build_Service/osc_plugins/Overview
 
-    overview viewname : willa attempt to read the group from
+    overview viewname : will attempt to read the group from
     ~/.osc-overview/groupname.ini and display the data.
 
     Options:
-      -c : display diff of changes across the newest and the previous
+      -c, --changelog
+           display diff of changes across the newest and the previous
            versions of the packages.
+      -p, --patchinfo
+           Create a patchinfo template
+      --color
+           Colorize the output. Also 'color=1' in $group.ini.
+      --no-color
+           Do not colorize the output. Also 'color=0' in $group.ini.
 
     Usage:
-      osc overview [-c] {group}
+      osc overview [Options] {group}
 
       You should define your groups in ~/.osc-overview/$group.ini
 
