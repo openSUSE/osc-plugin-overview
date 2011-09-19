@@ -411,8 +411,11 @@ class BuildServiceSource(PackageSource):
             # but lets add some AI
             try:
                 li = self.link_info(self.service, self.project, package)
-                content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
-                return content
+		if ( li.project != project or li.package != package or li.xsrcmd5 != revision ):
+		  content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
+		  return content
+		print "Cannot get source file from (cyclic link?): %s" % u
+		exit(1)
             except urllib2.HTTPError, e:
                  # now really give up
                  print "Cannot get source file from: %s" % u
