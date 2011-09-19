@@ -488,35 +488,29 @@ class BuildServiceSource(PackageSource):
         Returns the version for a package
         Package must exist in packages()
         """
-        history = self.get_project_source_file(self.project, package, "_history")
-        version = self.parse_version(history)
-
-        if version.startswith("unknown"):
-            # may be it is a link
-            li = self.link_info(self.service, self.project, package)
-            if not li or not li.islink():
-                return None
-            # ma@:
-            # According to mls@ the li.xsrcmd5 is not the right checksum. He
-            # suggests to get the complete history, and get the version of entry
-            # li.rev. Unfortunately osc.core.Linkinfo does not provide it ;(
-            #
-            # Appart from that, osc should be able to publish the version that is actually
-            # used for building. Then we could stop all this link evaluation here.
-            #
-            # Disable the li.xsrcmd5 argument because this does not check the link, but
-            # fails if the source and target package names differ, like in:
-            #  obs://openSUSE:11.0:Update/yast2-pkg-bindings -> yast2-pkg-bindings-devel-doc
-
-            # ma@:
-	    # Follow IBS link to OBS via fake 'openSUSE.org:' project
-	    if ( self.service == 'https://api.suse.de' and li.project.startswith( 'openSUSE.org:' ) ):
-		project = li.project[13:]
-		source = BuildServiceSource('https://api.opensuse.org', project )
+	# ma@:
+	# Follow IBS link to OBS via fake 'openSUSE.org:' project
+	version = None
+	src_project = self.project
+	while True:
+	    if ( self.service == 'https://api.suse.de' and src_project.startswith( 'openSUSE.org:' ) ):
+		src_project = src_project[13:]
+		source = BuildServiceSource('https://api.opensuse.org', src_project )
 		return source.version( package )
 
-	    history = self.get_project_source_file(li.project, li.package, "_history") # , li.xsrcmd5)
-            version = self.parse_version(history)
+	    history = self.get_project_source_file(src_project, package, "_history")
+	    version = self.parse_version(history)
+	    if not version.startswith("unknown"):
+		return version
+
+	    # may be it is a link
+	    li = self.link_info(self.service, src_project, package)
+	    if not li or not li.islink():
+		return version
+
+	    # follow link
+	    src_project = li.project
+
         return version
 
 class BuildServicePendingRequestsSource(PackageSource):
@@ -578,30 +572,12 @@ class BuildServicePendingRequestsSource(PackageSource):
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
                 # ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
+                rsv = self.request_source_version( req, package )
 		d['prj'] = req.src_project
-		#d['ver'] = '-'
-		d['rev'] = req.src_rev
+		d['ver'] = rsv.get( 'ver', None )
+		d['rev'] = rsv.get( 'rev', req.src_rev )
 		d['req'] = request.reqid
 		d['rst'] = request.state.name
-                revisions = {}
-                try:
-                    # TODO: should be possible to directly query histpry for a specific revision '__history?rev=378'
-                    u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'])
-                    f = osc.core.http_GET(u)
-                    root = ET.parse(f).getroot()
-                    revisions = root.findall('revision')
-                    revisions.reverse()
-                except urllib2.HTTPError, e:
-                    print "Cannot get package info from: %s" % u
-                    #exit(1)
-
-                version = 0
-                # maybe we can even figure out the version...
-                for node in revisions:
-                    rev = node.get('rev')
-                    if rev == req.src_rev:
-                        d['ver'] = node.find('version').text
-                        return d
 		return d
 
         # no new request then check last accepted: (TODO remove duplicate code here and loop above)
@@ -610,36 +586,76 @@ class BuildServicePendingRequestsSource(PackageSource):
         for request in rqlist:
           #print "REQ %s %s" % (request.reqid,request.state.name)
           for req in request.actions:
-            #print "  A %s %s %s %s" % (req.type,req.src_project,req.dst_project,req.src_rev)
+	    #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
                 # ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
+                rsv = self.request_source_version( req, package )
 		d['prj'] = req.src_project
-		#d['ver'] = '-'
-		d['rev'] = req.src_rev
+		d['ver'] = rsv.get( 'ver', None )
+		d['rev'] = rsv.get( 'rev', req.src_rev )
 		d['req'] = request.reqid
 		#d['rst'] = ''
-		revisions = {}
-                try:
-                    u = osc.core.makeurl(self.service, ['source', req.src_project, package, '_history'] )
-                    f = osc.core.http_GET(u)
-                    root = ET.parse(f).getroot()
-                    revisions = root.findall('revision')
-                    revisions.reverse()
-                except urllib2.HTTPError, e:
-                    print "Cannot get package info from: %s" % u
-                    #exit(1)
-
-                version = 0
-                # maybe we can even figure out the version...
-                for node in revisions:
-                    rev = node.get('rev')
-                    #print "%s %s" %(rev,req.src_rev)
-                    if rev == req.src_rev:
-                        d['ver'] = node.find('version').text
-                        return d
                 return d
         return d
+
+    def request_source_version( self, req, package ):
+	"""Try to figure out the version of the submitted package.
+	Follow source links and IBS link to OBS via fake 'openSUSE.org:' project.
+	"""
+	ret = {}
+	src_service = self.service
+	src_project = req.src_project
+	while True:
+	  # Follow IBS link to OBS via fake 'openSUSE.org:' project
+	  if ( src_service == 'https://api.suse.de' and src_project.startswith( 'openSUSE.org:' ) ):
+	      src_service = 'https://api.opensuse.org'
+	      src_project = src_project[13:]
+
+	  revisions = {}
+	  try:
+	      u = osc.core.makeurl(src_service, ['source', src_project, package, '_history'])
+	      f = osc.core.http_GET(u)
+	      root = ET.parse(f).getroot()
+	      revisions = root.findall('revision')
+	      revisions.reverse()
+	  except urllib2.HTTPError, e:
+	      print "Cannot get package info from: %s" % u
+
+	  # maybe we can even figure out the version...
+	  for node in revisions:
+	      if node.get('rev') == req.src_rev:
+		  ret['ver'] = node.find('version').text
+		  return ret
+	      md5 = node.find('srcmd5')
+	      if md5 != None and md5.text == req.acceptinfo_srcmd5:
+		  ret['ver'] = node.find('version').text
+		  ret['rev'] = node.get('rev')		# the original source projects revision
+		  return ret
+
+	  li = self.link_info(src_service, src_project, package)
+	  if not li or not li.islink():
+	    return ret
+	  src_project = li.project
+
+	return ret
+
+    def link_info(self, apiurl, prj, pac):
+        m = osc.core.show_files_meta(apiurl, prj, pac)
+        try:
+            # only source link packages have a <linkinfo> element.
+            li_node = ET.parse(StringIO(''.join(m))).getroot().find('linkinfo')
+        except:
+            return None
+
+        li = osc.core.Linkinfo()
+        li.read(li_node)
+
+        if li.haserror():
+            return None
+            #raise oscerr.LinkExpandError, li.error
+        else:
+            return li
 
     def mtime(self, package):
 	return 0
