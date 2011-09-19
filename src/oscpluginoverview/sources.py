@@ -161,9 +161,11 @@ class View:
                         # suppress empty diffs
                         continue
 
-                    file_str.write("+--------------------------------------------------------------------------+\n")
-                    file_str.write("------- %s ( %s vs %s )\n" % (package, reponew, repoold))
-                    file_str.write("+--------------------------------------------------------------------------+\n")
+		    from oscpluginoverview.texttable import Texttable
+		    table = Texttable()
+                    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
+                    file_str.write(table.colorize_text('B',"------- %s ( %s vs %s )\n" % (package, reponew, repoold)))
+                    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
                     file_str.write(changesdiff)
                     file_str.write("\n")
 

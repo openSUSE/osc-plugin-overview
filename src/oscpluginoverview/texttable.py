@@ -418,6 +418,11 @@ class Texttable:
         if not hasattr(self, "_valign"):
             self._valign = ["t"]*self._row_size
 
+    def colorize_text( self, attr, text ):
+	if attr == None or not self._attr_val.has_key( attr ):
+	  return text
+	return "%s%s%s" % ( self._attr_val[attr], text,  self._attr_val[None] )
+
     def _set_cell_attr( self, row, col, text ):
 	if len( self._attr ) == 0:
 	  return text
@@ -437,11 +442,7 @@ class Texttable:
 	  elif r.has_key( None ):
 	    a = r[None]
 
-	if a == None or not self._attr_val.has_key( a ):
-	  return text
-
-	text = "%s%s%s" % ( self._attr_val[a], text,  self._attr_val[None] )
-	return text
+	return self.colorize_text( a, text )
 
     def _draw_line(self, line, isheader=False):
         """Draw a line
