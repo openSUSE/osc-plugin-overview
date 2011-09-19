@@ -490,7 +490,8 @@ class BuildServiceSource(PackageSource):
         """
         history = self.get_project_source_file(self.project, package, "_history")
         version = self.parse_version(history)
-        if version == "unknown":
+
+        if version.startswith("unknown"):
             # may be it is a link
             li = self.link_info(self.service, self.project, package)
             if not li or not li.islink():
@@ -506,9 +507,16 @@ class BuildServiceSource(PackageSource):
             # Disable the li.xsrcmd5 argument because this does not check the link, but
             # fails if the source and target package names differ, like in:
             #  obs://openSUSE:11.0:Update/yast2-pkg-bindings -> yast2-pkg-bindings-devel-doc
-            #
-            history = self.get_project_source_file(li.project, li.package, "_history") # , li.xsrcmd5)
-            return self.parse_version(history)
+
+            # ma@:
+	    # Follow IBS link to OBS via fake 'openSUSE.org:' project
+	    if ( self.service == 'https://api.suse.de' and li.project.startswith( 'openSUSE.org:' ) ):
+		project = li.project[13:]
+		source = BuildServiceSource('https://api.opensuse.org', project )
+		return source.version( package )
+
+	    history = self.get_project_source_file(li.project, li.package, "_history") # , li.xsrcmd5)
+            version = self.parse_version(history)
         return version
 
 class BuildServicePendingRequestsSource(PackageSource):
