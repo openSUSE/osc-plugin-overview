@@ -84,6 +84,18 @@ class View:
 		if cmp == None:
 		    cmp = v
 		else:
+		    # version has become multiline!
+		    # pkg version, rev in prj and req number
+		    # for obssr repos. 1st. col is usually
+		    # the devel prj, so test whether the
+		    # others have the same ver/rev.
+		    #+=========+========+==========+
+		    #|   pkg   | obs:// | obssr:// |
+		    #+=========+========+==========+
+		    #| apache2 | 3.3    | 3.3      |
+		    #|         | rev 1  | rev 1    |
+		    #|         |        | #15022   |
+		    #+---------+--------+----------+
 		    if not v.startswith( cmp ):
 		      table.set_attr( 'R', len(rows), len(row) )
 		row.append(v)
