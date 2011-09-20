@@ -222,7 +222,8 @@ class View:
                 # resolve the packages list or macro
                 pkgopt = config.get(view,'packages')
                 self.packages = oscpluginoverview.sources.evalMacro(self.repos, self.data, pkgopt)
-            for package in self.packages:
+	    expect = len(self.packages) * len(self.repos)
+	    for package in self.packages:
                 row = []
                 # append the package name, then we add the versions
                 row.append(package)
@@ -249,6 +250,11 @@ class View:
                         version = self.data[repo].version(package)
                     else:
                         version = None
+
+		    sys.stdout.write( "[%d]{%s/%s}" % ( expect, repo,  package ) )
+		    sys.stdout.flush()
+		    expect -= 1
+
                     self.setVersionForPackage(repo, package, version)
 
                 # older filter, show the row _only_ if specified repo is
@@ -280,6 +286,7 @@ class View:
                 # append to the filter if it should not be shown
                 if not showrow:
                     self.filter.append(package)
+	    sys.stdout.write( "\n" )
         else:
             print "No repos defined for %s" % view
             return
