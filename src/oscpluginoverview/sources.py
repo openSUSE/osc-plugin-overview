@@ -430,15 +430,13 @@ class BuildServiceSource(PackageSource):
             # but lets add some AI
             try:
                 li = self.link_info(self.service, self.project, package)
-		if ( li.project != project or li.package != package or li.xsrcmd5 != revision ):
+		if ( li.islink() and ( li.project != project or li.package != package or li.xsrcmd5 != revision ) ):
 		  content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
 		  return content
-		print "Cannot get source file from (cyclic link?): %s" % u
-		exit(1)
+		raise Exception("Cannot get source file from (cyclic link?): %s" % u)
             except urllib2.HTTPError, e:
-                 # now really give up
-                 print "Cannot get source file from: %s" % u
-                 exit(1)
+		# now really give up
+		raise Exception("Cannot get source file from: %s" % u)
 
     def get_source_file(self, package, file, rev=None):
         return self.get_project_source_file(self.project, package, file, rev)
@@ -448,7 +446,11 @@ class BuildServiceSource(PackageSource):
         Returns the changelog of a package
         in this case package.changes file
         """
-        return self.get_source_file(package, "%s.changes" % package)
+	try:
+	  return self.get_source_file(package, "%s.changes" % package)
+	except Exception, e:
+	  print e
+	  return None
 
     def mtime(self, package):
         m = osc.core.show_files_meta(self.service, self.project, package)
@@ -478,12 +480,15 @@ class BuildServiceSource(PackageSource):
         r = []
         revisions = root.findall('revision')
         revisions.reverse()
-        version = 0
+        version = 'unknown'
+        revision = 'unknown'
         for node in revisions:
-            version = "%s\nrev %s" % (node.find('version').text, node.get('rev'))
+            #version = "%s\nrev %s" % (node.find('version').text, node.get('rev'))
+	    version = node.find('version').text
+	    revision = node.get('rev')
             break
 
-        return version
+        return (version,revision)
 
     def link_info(self, apiurl, prj, pac):
         m = osc.core.show_files_meta(apiurl, prj, pac)
@@ -510,6 +515,8 @@ class BuildServiceSource(PackageSource):
 	# ma@:
 	# Follow IBS link to OBS via fake 'openSUSE.org:' project
 	version = None
+	revision = None
+	versionQuality = ''
 	src_project = self.project
 	while True:
 	    if ( self.service == 'https://api.suse.de' and src_project.startswith( 'openSUSE.org:' ) ):
@@ -518,19 +525,23 @@ class BuildServiceSource(PackageSource):
 		return source.version( package )
 
 	    history = self.get_project_source_file(src_project, package, "_history")
-	    version = self.parse_version(history)
+	    (version,rev) = self.parse_version(history)
+	    if not revision:
+	      revision = rev
 	    if not version.startswith("unknown"):
-		return version
+		break
 
 	    # may be it is a link
 	    li = self.link_info(self.service, src_project, package)
 	    if not li or not li.islink():
-		return version
+		break
 
 	    # follow link
+	    versionQuality = ' (x-link)'
 	    src_project = li.project
+	    package = li.package
 
-        return version
+        return "%s%s\nrev %s" % (version,versionQuality,revision)
 
 class BuildServicePendingRequestsSource(PackageSource):
     """
@@ -589,7 +600,9 @@ class BuildServicePendingRequestsSource(PackageSource):
 	rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('new','review'), req_type='submit' )
         rqlist.reverse()
         for request in rqlist:
+          #print "REQ %s %s" % (request.reqid,request.state.name)
           for req in request.actions:
+	    #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
             if req.src_package == package:
                 # now look for the revision in the history to figure out the version
                 # ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
@@ -625,6 +638,7 @@ class BuildServicePendingRequestsSource(PackageSource):
 	Follow source links and IBS link to OBS via fake 'openSUSE.org:' project.
 	"""
 	ret = {}
+	versionQuality = ''
 	src_service = self.service
 	src_project = req.src_project
 	while True:
@@ -647,20 +661,32 @@ class BuildServicePendingRequestsSource(PackageSource):
 	  # maybe we can even figure out the version...
 	  for node in revisions:
 	      #print "  - n %s %s %s" % ( node.get('rev'), node.find('version').text, node.find('srcmd5').text )
+	      if versionQuality != '':
+		  # following a link we guess the 1st vresion.
+		  ret['ver'] = node.find('version').text
+		  break
 	      if node.get('rev') == req.src_rev:
 		  ret['ver'] = node.find('version').text
-		  return ret
+		  break
 	      md5 = node.find('srcmd5')
 	      if md5 != None and md5.text == req.acceptinfo_srcmd5:
 		  ret['ver'] = node.find('version').text
 		  ret['rev'] = node.get('rev')		# the original source projects revision
-		  return ret
+		  break
+
+	  if ret['ver'] != 'unknown':
+	    break
 
 	  li = self.link_info(src_service, src_project, package)
 	  if not li or not li.islink():
-	    return ret
-	  src_project = li.project
+	    break
 
+	  src_project = li.project
+	  package = li.package
+	  versionQuality = ' (x-link)'
+
+	if versionQuality != '':
+	    ret['ver'] += versionQuality
 	return ret
 
     def link_info(self, apiurl, prj, pac):
