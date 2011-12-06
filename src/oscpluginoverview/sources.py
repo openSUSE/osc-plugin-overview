@@ -117,6 +117,11 @@ class View:
 
         receives two tuples (repo, version) as input
         """
+	if str(x[0]).startswith( "obs://zypp:" ):
+	  return 1;
+	if str(y[0]).startswith( "obs://zypp:" ):
+	  return -1;
+
         res = rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1'))
         # only fetch mtimes if the package is in the repo
         if res == 0 and x[1] and y[1]:
@@ -528,7 +533,7 @@ class BuildServiceSource(PackageSource):
 	    (version,rev) = self.parse_version(history)
 	    if not revision:
 	      revision = rev
-	    if not version.startswith("unknown"):
+	    if version and not version.startswith("unknown"):
 		break
 
 	    # may be it is a link
@@ -674,7 +679,7 @@ class BuildServicePendingRequestsSource(PackageSource):
 		  ret['rev'] = node.get('rev')		# the original source projects revision
 		  break
 
-	  if ret['ver'] != 'unknown':
+	  if ret.has_key('ver') and ret['ver'] != 'unknown':
 	    break
 
 	  li = self.link_info(src_service, src_project, package)
