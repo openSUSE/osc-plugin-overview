@@ -105,7 +105,9 @@ class View:
         #row.append(version)
         #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
         table.add_rows(rows)
-        print "** %s ** " % self.name
+	if self.config.has_option( self.name, 'nopackages' ):
+	  print table.colorize_text('M',"(blacklisted: %s)" % self.config.get( self.name, 'nopackages' ))
+	print table.colorize_text('M',"** %s ** " % self.name)
         print table.draw()
         print
 
@@ -144,7 +146,6 @@ class View:
             # map package to bigger version
             for package, repovers in self.versions_rev.items():
                 res = sorted(repovers.items(), lambda x,y: self.packageCompare(package,x,y) )
-
                 # now we have a list of tuples (repo, version) for this package
                 # we find the last two and ask for the changes file. Take care
                 # the package version is not None, and also the changelog isn't.
@@ -216,6 +217,10 @@ class View:
             if len(self.repos) == 0:
                 return
 
+	    blacklist = None
+	    if config.has_option( view, 'nopackages' ):
+		blacklist = config.get( view, 'nopackages' ).split(',')
+
             for repo in self.repos:
                 # resolve the repo uri to a data source object
                 import oscpluginoverview.sources
@@ -226,7 +231,7 @@ class View:
             if config.has_option(view, 'packages'):
                 # resolve the packages list or macro
                 pkgopt = config.get(view,'packages')
-                self.packages = oscpluginoverview.sources.evalMacro(self.repos, self.data, pkgopt)
+                self.packages = oscpluginoverview.sources.evalMacro(self.repos, self.data, pkgopt, blacklist)
 	    expect = len(self.packages) * len(self.repos)
 	    for package in self.packages:
                 row = []
@@ -266,7 +271,7 @@ class View:
                 # older than any other column
                 showrow = True
                 if config.has_option(view, 'filter.older'):
-                    oldfilterrepos = oscpluginoverview.sources.evalMacro(self.repos, self.data, config.get(view,'filter.older'))
+                    oldfilterrepos = oscpluginoverview.sources.evalMacro(self.repos, self.data, blacklist)
                     if len(oldfilterrepos) != 1:
                         print "Only one source can be used as base for old filter"
                         exit(1)
@@ -296,7 +301,7 @@ class View:
             print "No repos defined for %s" % view
             return
 
-def evalMacro(repos, data, expr):
+def evalMacro(repos, data, expr, blacklist ):
     """
     evaluates a expression
     returns expanded version
@@ -336,6 +341,12 @@ def evalMacro(repos, data, expr):
         else:
             # assume it is a repo
             ret.append(component)
+
+    if blacklist:
+      for pkg in blacklist:
+	while ret.count( pkg ):
+	  ret.remove( pkg )
+
     return ret
 
 class PackageSource:
