@@ -4,6 +4,7 @@ import os
 import rpm
 import oscpluginoverview.diff
 from cStringIO import StringIO
+from locale import atoi
 import osc.core
 try:
     from xml.etree import cElementTree as ET
@@ -119,11 +120,6 @@ class View:
 
         receives two tuples (repo, version) as input
         """
-	if str(x[0]).startswith( "obs://zypp:" ):
-	  return 1;
-	if str(y[0]).startswith( "obs://zypp:" ):
-	  return -1;
-
         res = rpm.labelCompare((None, str(x[1]), '1'), (None, str(y[1]), '1'))
         # only fetch mtimes if the package is in the repo
         if res == 0 and x[1] and y[1]:
@@ -131,12 +127,28 @@ class View:
         else:
             return res
 
+
     def changelogDiff(self):
         """
         Returns a diff with package changes
         (obtained from the .changes file) of the whole
         group. The 2 newer versions are used to compare
         """
+        config = self.config
+        view   = self.name
+
+	diffidx = None
+	if config.has_option( view, 'repodiff' ):
+	  raw = config.get( view, 'repodiff' )
+	  idx = raw.split(',')
+	  if len(idx) == 2:
+	    i0 = atoi( idx[0] ) - 1
+	    i1 = atoi( idx[1] ) - 1
+	    if i0 == i1 or i0 < 0 or i1 < 0 or i0 >= len(self.repos) or i1 >= len(self.repos):
+	      raise Exception("repodiff index out of range got '%s'" % raw)
+	    diffidx = (i0,i1)
+	  else:
+	    raise Exception("malformed repodiff expecting '<NUMBER>,<NUMBER>' got '%s'" % raw)
 
         if not self.changelog:
             file_str = StringIO()
@@ -145,7 +157,15 @@ class View:
             # find higher version per package and where does it come from
             # map package to bigger version
             for package, repovers in self.versions_rev.items():
-                res = sorted(repovers.items(), lambda x,y: self.packageCompare(package,x,y) )
+		res = []
+		if diffidx:
+		  for e in repovers.items():
+		    if e[0] == self.repos[diffidx[0]]:
+		      res.insert( 0, e )
+		    elif e[0] == self.repos[diffidx[1]]:
+		      res.append( e )
+		else:
+		  res = sorted(repovers.items(), lambda x,y: self.packageCompare(package,x,y) )
                 # now we have a list of tuples (repo, version) for this package
                 # we find the last two and ask for the changes file. Take care
                 # the package version is not None, and also the changelog isn't.
