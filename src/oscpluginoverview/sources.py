@@ -634,7 +634,8 @@ class BuildServicePendingRequestsSource(PackageSource):
 
         # first check for new requests
 	rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('new','review'), req_type='submit' )
-        rqlist.reverse()
+	rqlist.sort()
+	rqlist.reverse()
         for request in rqlist:
           #print "REQ %s %s" % (request.reqid,request.state.name)
           for req in request.actions:
@@ -652,7 +653,8 @@ class BuildServicePendingRequestsSource(PackageSource):
 
         # no new request then check last accepted: (TODO remove duplicate code here and loop above)
         rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('accepted',), req_type='submit' )
-        rqlist.reverse()
+	rqlist.sort()
+	rqlist.reverse()
         for request in rqlist:
           #print "REQ %s %s" % (request.reqid,request.state.name)
           for req in request.actions:
