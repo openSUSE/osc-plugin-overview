@@ -63,7 +63,7 @@ def do_overview(self, subcmd, opts, *args):
     """${cmd_name}: Overview of various repositories.
 
     For a full description, read:
-    http://en.opensuse.org/Build_Service/osc_plugins/Overview
+    http://en.opensuse.org/openSUSE:OSC_overview_plugin
 
     overview viewname : will attempt to read the group from
     ~/.osc-overview/groupname.ini and display the data.
