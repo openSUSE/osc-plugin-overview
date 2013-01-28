@@ -46,9 +46,9 @@ class View:
         """
         Sets the known version of a package in a repo
         """
-        if not self.versions.has_key(repo):
+        if not repo in self.versions:
             self.versions[repo] = {}
-        if not self.versions_rev.has_key(package):
+        if not package in self.versions_rev:
             self.versions_rev[package] = {}
 
         self.versions[repo][package] = version
@@ -58,9 +58,9 @@ class View:
         #print ",".join(self.filter)
         from oscpluginoverview.texttable import Texttable
         table = Texttable()
-	table.set_color( self.colorize )
-	table.set_attr( 'G', 0 )	# green headline
-	table.set_attr( 'B', None, 0 )	# blue 1st col
+        table.set_color(self.colorize)
+        table.set_attr('G', 0)	# green headline
+        table.set_attr('B', None, 0)	# blue 1st col
         rows = []
 
         header = []
@@ -77,38 +77,38 @@ class View:
                 continue
             row = []
             row.append(p)
-	    cmp = None
+            cmp = None
             for r in self.repos:
                 v = self.versions[r][p]
                 if v == None:
-		    v = '-'
-		if cmp == None:
-		    cmp = v
-		else:
-		    # version has become multiline!
-		    # pkg version, rev in prj and req number
-		    # for obssr repos. 1st. col is usually
-		    # the devel prj, so test whether the
-		    # others have the same ver/rev.
-		    #+=========+========+==========+
-		    #|   pkg   | obs:// | obssr:// |
-		    #+=========+========+==========+
-		    #| apache2 | 3.3    | 3.3      |
-		    #|         | rev 1  | rev 1    |
-		    #|         |        | #15022   |
-		    #+---------+--------+----------+
-		    if not v.startswith( cmp ):
-		      table.set_attr( 'R', len(rows), len(row) )
-		row.append(v)
+                    v = '-'
+                if cmp == None:
+                    cmp = v
+                else:
+                    # version has become multiline!
+                    # pkg version, rev in prj and req number
+                    # for obssr repos. 1st. col is usually
+                    # the devel prj, so test whether the
+                    # others have the same ver/rev.
+                    #+=========+========+==========+
+                    #|   pkg   | obs:// | obssr:// |
+                    #+=========+========+==========+
+                    #| apache2 | 3.3    | 3.3      |
+                    #|         | rev 1  | rev 1    |
+                    #|         |        | #15022   |
+                    #+---------+--------+----------+
+                    if not v.startswith(cmp):
+                        table.set_attr('R', len(rows), len(row))
+                row.append(v)
             rows.append(row)
 
         #versions[repo] = version
         #row.append(version)
         #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
         table.add_rows(rows)
-	if self.config.has_option( self.name, 'nopackages' ):
-	  print table.colorize_text('M',"(blacklisted: %s)" % self.config.get( self.name, 'nopackages' ))
-	print table.colorize_text('M',"** %s ** " % self.name)
+        if self.config.has_option(self.name, 'nopackages'):
+            print table.colorize_text('M', "(blacklisted: %s)" % self.config.get(self.name, 'nopackages'))
+        print table.colorize_text('M',"** %s ** " % self.name)
         print table.draw()
         print
 
@@ -135,20 +135,20 @@ class View:
         group. The 2 newer versions are used to compare
         """
         config = self.config
-        view   = self.name
+        view = self.name
 
-	diffidx = None
-	if config.has_option( view, 'repodiff' ):
-	  raw = config.get( view, 'repodiff' )
-	  idx = raw.split(',')
-	  if len(idx) == 2:
-	    i0 = atoi( idx[0] ) - 1
-	    i1 = atoi( idx[1] ) - 1
-	    if i0 == i1 or i0 < 0 or i1 < 0 or i0 >= len(self.repos) or i1 >= len(self.repos):
-	      raise Exception("repodiff index out of range got '%s'" % raw)
-	    diffidx = (i0,i1)
-	  else:
-	    raise Exception("malformed repodiff expecting '<NUMBER>,<NUMBER>' got '%s'" % raw)
+        diffidx = None
+        if config.has_option(view, 'repodiff'):
+            raw = config.get(view, 'repodiff')
+            idx = raw.split(',')
+            if len(idx) == 2:
+                i0 = atoi(idx[0]) - 1
+                i1 = atoi(idx[1]) - 1
+                if i0 == i1 or i0 < 0 or i1 < 0 or i0 >= len(self.repos) or i1 >= len(self.repos):
+                    raise Exception("repodiff index out of range got '%s'" % raw)
+                diffidx = (i0, i1)
+            else:
+                raise Exception("malformed repodiff expecting '<NUMBER>,<NUMBER>' got '%s'" % raw)
 
         if not self.changelog:
             file_str = StringIO()
@@ -157,21 +157,21 @@ class View:
             # find higher version per package and where does it come from
             # map package to bigger version
             for package, repovers in self.versions_rev.items():
-		res = []
-		if diffidx:
-		  for e in repovers.items():
-		    if e[0] == self.repos[diffidx[0]]:
-		      res.insert( 0, e )
-		    elif e[0] == self.repos[diffidx[1]]:
-		      res.append( e )
-		else:
-		  res = sorted(repovers.items(), lambda x,y: self.packageCompare(package,x,y) )
+                res = []
+                if diffidx:
+                    for e in repovers.items():
+                        if e[0] == self.repos[diffidx[0]]:
+                            res.insert(0, e)
+                        elif e[0] == self.repos[diffidx[1]]:
+                            res.append(e)
+                else:
+                    res = sorted(repovers.items(), lambda x, y: self.packageCompare(package, x, y))
                 # now we have a list of tuples (repo, version) for this package
                 # we find the last two and ask for the changes file. Take care
                 # the package version is not None, and also the changelog isn't.
                 # Changelog None indicates the repo does not provide changes (obssr://).
                 if len(res) >= 2:
-                    idx = len(res)-1
+                    idx = len(res) - 1
                     changesnew = None
                     reponew = None
                     while idx >= 0:
@@ -202,13 +202,12 @@ class View:
                         # suppress empty diffs
                         continue
 
-		    from oscpluginoverview.texttable import Texttable
-		    table = Texttable()
-		    table.set_color( self.colorize )
-
-		    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
-		    file_str.write(table.colorize_text('B',"------- %s ( %s vs %s )\n" % (package, reponew, repoold)))
-		    file_str.write(table.colorize_text('B',"+--------------------------------------------------------------------------+\n"))
+                    from oscpluginoverview.texttable import Texttable
+                    table = Texttable()
+                    table.set_color(self.colorize)
+                    file_str.write(table.colorize_text('B', "+--------------------------------------------------------------------------+\n"))
+                    file_str.write(table.colorize_text('B', "------- %s ( %s vs %s )\n" % (package, reponew, repoold)))
+                    file_str.write(table.colorize_text('B', "+--------------------------------------------------------------------------+\n"))
                     file_str.write(changesdiff)
                     file_str.write("\n")
 
@@ -230,16 +229,16 @@ class View:
         view = self.name
 
         if config.has_option(view, 'color'):
-	  self.colorize = config.getboolean(view, 'color')
+            self.colorize = config.getboolean(view, 'color')
 
         if config.has_option(view, 'repos'):
-            self.repos = config.get(view,'repos').split(',')
+            self.repos = config.get(view, 'repos').split(',')
             if len(self.repos) == 0:
                 return
 
-	    blacklist = None
-	    if config.has_option( view, 'nopackages' ):
-		blacklist = config.get( view, 'nopackages' ).split(',')
+            blacklist = None
+            if config.has_option(view, 'nopackages'):
+                blacklist = config.get(view, 'nopackages').split(',')
 
             for repo in self.repos:
                 # resolve the repo uri to a data source object
@@ -247,13 +246,13 @@ class View:
                 self.data[repo] = oscpluginoverview.sources.createSourceFromUrl(repo)
 
             if config.has_option(view, 'changes'):
-                self.showChanges = config.get(view,'changes')
+                self.showChanges = config.get(view, 'changes')
             if config.has_option(view, 'packages'):
                 # resolve the packages list or macro
-                pkgopt = config.get(view,'packages')
+                pkgopt = config.get(view, 'packages')
                 self.packages = oscpluginoverview.sources.evalMacro(self.repos, self.data, pkgopt, blacklist)
-	    expect = len(self.packages) * len(self.repos)
-	    for package in self.packages:
+            expect = len(self.packages) * len(self.repos)
+            for package in self.packages:
                 row = []
                 # append the package name, then we add the versions
                 row.append(package)
@@ -264,7 +263,7 @@ class View:
                 # save versions in a map repo -> version, to use in filters
                 for repo in self.repos:
                     # initialize
-                    if not self.versions.has_key(repo):
+                    if not repo in self.versions:
                         self.versions[repo] = {}
                     # the source may not support getting the package list
                     # in this case we just assume the package will be there
@@ -281,9 +280,9 @@ class View:
                     else:
                         version = None
 
-		    sys.stdout.write( "[%d]{%s/%s}" % ( expect, repo,  package ) )
-		    sys.stdout.flush()
-		    expect -= 1
+                    sys.stdout.write("[%d]{%s/%s}" % (expect, repo, package))
+                    sys.stdout.flush()
+                    expect -= 1
 
                     self.setVersionForPackage(repo, package, version)
 
@@ -302,7 +301,7 @@ class View:
                         import rpm
                         for cmprepo, cmpvers in self.versions.items():
                             # version to compare to
-                            if not cmpvers.has_key(package):
+                            if not package in cmpvers:
                                 continue
                             v = cmpvers[package]
                             # if the version is not there skip this row
@@ -316,12 +315,12 @@ class View:
                 # append to the filter if it should not be shown
                 if not showrow:
                     self.filter.append(package)
-	    sys.stdout.write( "\n" )
+            sys.stdout.write( "\n" )
         else:
             print "No repos defined for %s" % view
             return
 
-def evalMacro(repos, data, expr, blacklist ):
+def evalMacro(repos, data, expr, blacklist):
     """
     evaluates a expression
     returns expanded version
@@ -343,7 +342,7 @@ def evalMacro(repos, data, expr, blacklist ):
             if len(repos) < column:
                 print "Can't use repo #%d, not enough repos" % column
                 exit(1)
-            repo = repos[column-1]
+            repo = repos[column - 1]
             ret.append(repo)
         matches = re.findall('\*(\d+)', component)
         if len(matches) > 0:
@@ -352,7 +351,7 @@ def evalMacro(repos, data, expr, blacklist ):
             if len(repos) < column:
                 print "Can't use repo #%d package list, not enough repos" % column
                 exit(1)
-            repo = repos[column-1]
+            repo = repos[column - 1]
             packages = data[repo].packages()
             if len(packages) == 0:
                 print "No packages defined for $s" % view
@@ -363,11 +362,11 @@ def evalMacro(repos, data, expr, blacklist ):
             ret.append(component)
 
     if blacklist:
-      for pkg in blacklist:
-	while ret.count( pkg ):
-	  ret.remove( pkg )
-
+        for pkg in blacklist:
+            while ret.count(pkg):
+                ret.remove(pkg)
     return ret
+
 
 class PackageSource:
     """
@@ -406,12 +405,12 @@ class CachedSource(PackageSource):
         self.mtimes = {}
 
     def changelog(self, package):
-        if not self.changelogs.has_key(package):
+        if not package in self.changelogs:
             self.changelogs[package] = self.source.changelog(package)
         return self.changelogs[package]
 
     def mtime(self, package):
-        if not self.mtimes.has_key(package):
+        if not package in self.mtimes:
             self.mtimes[package] = self.source.mtime(package)
         return self.mtimes[package]
 
@@ -419,13 +418,15 @@ class CachedSource(PackageSource):
         if self.pkglist == None:
             self.pkglist = self.source.packages()
         return self.pkglist
+
     def version(self, package):
-        if not self.versions.has_key(package):
+        if not package in self.versions:
             self.versions[package] = self.source.version(package)
         return self.versions[package]
 
     def label(self):
         return self.source.label
+
 
 class BuildServiceSource(PackageSource):
 
@@ -450,7 +451,7 @@ class BuildServiceSource(PackageSource):
 
         query = None
         if revision:
-            query = { 'rev': revision }
+            query = {'rev': revision}
         # workaround
         u = None
         if query:
@@ -466,13 +467,13 @@ class BuildServiceSource(PackageSource):
             # but lets add some AI
             try:
                 li = self.link_info(self.service, self.project, package)
-		if ( li.islink() and ( li.project != project or li.package != package or li.xsrcmd5 != revision ) ):
-		  content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
-		  return content
-		raise Exception("Cannot get source file from (cyclic link?): %s" % u)
+                if (li.islink() and (li.project != project or li.package != package or li.xsrcmd5 != revision)):
+                    content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
+                    return content
+                raise Exception("Cannot get source file from (cyclic link?): %s" % u)
             except urllib2.HTTPError, e:
-		# now really give up
-		raise Exception("Cannot get source file from: %s" % u)
+                # now really give up
+                raise Exception("Cannot get source file from: %s" % u)
 
     def get_source_file(self, package, file, rev=None):
         return self.get_project_source_file(self.project, package, file, rev)
@@ -482,11 +483,11 @@ class BuildServiceSource(PackageSource):
         Returns the changelog of a package
         in this case package.changes file
         """
-	try:
-	  return self.get_source_file(package, "%s.changes" % package)
-	except Exception, e:
-	  print e
-	  return None
+        try:
+            return self.get_source_file(package, "%s.changes" % package)
+        except Exception, e:
+            print e
+            return None
 
     def mtime(self, package):
         m = osc.core.show_files_meta(self.service, self.project, package)
@@ -504,7 +505,7 @@ class BuildServiceSource(PackageSource):
 
     def packages(self):
         import osc.core
-        return  osc.core.meta_get_packagelist(self.service, self.project)
+        return osc.core.meta_get_packagelist(self.service, self.project)
 
     def parse_version(self, history):
         """
@@ -520,11 +521,11 @@ class BuildServiceSource(PackageSource):
         revision = 'unknown'
         for node in revisions:
             #version = "%s\nrev %s" % (node.find('version').text, node.get('rev'))
-	    version = node.find('version').text
-	    revision = node.get('rev')
+            version = node.find('version').text
+            revision = node.get('rev')
             break
 
-        return (version,revision)
+        return (version, revision)
 
     def link_info(self, apiurl, prj, pac):
         m = osc.core.show_files_meta(apiurl, prj, pac)
@@ -548,36 +549,37 @@ class BuildServiceSource(PackageSource):
         Returns the version for a package
         Package must exist in packages()
         """
-	# ma@:
-	# Follow IBS link to OBS via fake 'openSUSE.org:' project
-	version = None
-	revision = None
-	versionQuality = ''
-	src_project = self.project
-	while True:
-	    if ( self.service == 'https://api.suse.de' and src_project.startswith( 'openSUSE.org:' ) ):
-		src_project = src_project[13:]
-		source = BuildServiceSource('https://api.opensuse.org', src_project )
-		return source.version( package )
+        # ma@:
+        # Follow IBS link to OBS via fake 'openSUSE.org:' project
+        version = None
+        revision = None
+        versionQuality = ''
+        src_project = self.project
+        while True:
+            if (self.service == 'https://api.suse.de' and src_project.startswith('openSUSE.org:')):
+                src_project = src_project[13:]
+                source = BuildServiceSource('https://api.opensuse.org', src_project)
+                return source.version(package)
 
-	    history = self.get_project_source_file(src_project, package, "_history")
-	    (version,rev) = self.parse_version(history)
-	    if not revision:
-	      revision = rev
-	    if version and not version.startswith("unknown"):
-		break
+            history = self.get_project_source_file(src_project, package, "_history")
+            (version, rev) = self.parse_version(history)
+            if not revision:
+                revision = rev
+            if version and not version.startswith("unknown"):
+                break
 
-	    # may be it is a link
-	    li = self.link_info(self.service, src_project, package)
-	    if not li or not li.islink():
-		break
+            # may be it is a link
+            li = self.link_info(self.service, src_project, package)
+            if not li or not li.islink():
+                break
 
-	    # follow link
-	    versionQuality = ' (x-link)'
-	    src_project = li.project
-	    package = li.package
+            # follow link
+            versionQuality = ' (x-link)'
+            src_project = li.project
+            package = li.package
 
-        return "%s%s\nrev %s" % (version,versionQuality,revision)
+        return "%s%s\nrev %s" % (version, versionQuality, revision)
+
 
 class BuildServicePendingRequestsSource(PackageSource):
     """
@@ -603,25 +605,25 @@ class BuildServicePendingRequestsSource(PackageSource):
         # now directly retrieves the requests for a given package.
 
     def version(self, package):
-	d = self.cacheVersion( package )
-	#ret = "%s\nrev %s\n%s\n#%s" % ( d.get( 'ver', '-' ), d.get( 'rev', '-' ), d.get( 'prj', 'UNKNOWN PRJ' ), d.get( 'req', '-' ) )
-	ret = d.get( 'ver', '-' )
-	if d.has_key( 'rev' ):
-	  ret = "%s\nrev %s" % ( ret, d['rev'] )
-	#if d.has_key( 'prj' ):
-	#  ret = "%s\n%s" % ( ret, d['prj'] )
-	if d.has_key( 'req' ):
-	  ret = "%s\n#%s" % ( ret, d['req'] )
-	  if d.has_key( 'rst' ):
-	    ret = "%s (%s)" % ( ret, d['rst'] )
-	return ret
+        d = self.cacheVersion(package)
+        #ret = "%s\nrev %s\n%s\n#%s" % ( d.get( 'ver', '-' ), d.get( 'rev', '-' ), d.get( 'prj', 'UNKNOWN PRJ' ), d.get( 'req', '-' ) )
+        ret = d.get('ver', '-')
+        if 'rev' in d:
+            ret = "%s\nrev %s" % (ret, d['rev'])
+        #if d.has_key( 'prj' ):
+        #  ret = "%s\n%s" % ( ret, d['prj'] )
+        if 'req' in d:
+            ret = "%s\n#%s" % (ret, d['req'])
+            if 'rst' in d:
+                ret = "%s (%s)" % (ret, d['rst'])
+        return ret
 
     def cacheVersion(self, package):
-	if self._pkgversions.has_key( package ):
-	  return self._pkgversions[package]
+        if package in self._pkgversions:
+            return self._pkgversions[package]
 
-	self._pkgversions[package] = {}
-	d = self._pkgversions[package]
+        self._pkgversions[package] = {}
+        d = self._pkgversions[package]
 
         try:
             from xml.etree import cElementTree as ET
@@ -633,99 +635,99 @@ class BuildServicePendingRequestsSource(PackageSource):
         ret = None
 
         # first check for new requests
-	rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('new','review'), req_type='submit' )
-	rqlist.sort()
-	rqlist.reverse()
+        rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('new', 'review'), req_type='submit')
+        rqlist.sort()
+        rqlist.reverse()
         for request in rqlist:
-          #print "REQ %s %s" % (request.reqid,request.state.name)
-          for req in request.actions:
-	    #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
-            if req.src_package == package:
-                # now look for the revision in the history to figure out the version
-                # ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
-                rsv = self.request_source_version( req, package )
-		d['prj'] = req.src_project
-		d['ver'] = rsv.get( 'ver', req.src_project )
-		d['rev'] = rsv.get( 'rev', req.src_rev )
-		d['req'] = request.reqid
-		d['rst'] = request.state.name
-		return d
+            #print "REQ %s %s" % (request.reqid,request.state.name)
+            for req in request.actions:
+                #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
+                if req.src_package == package:
+                    # now look for the revision in the history to figure out the version
+                    # ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
+                    rsv = self.request_source_version(req, package)
+                    d['prj'] = req.src_project
+                    d['ver'] = rsv.get('ver', req.src_project)
+                    d['rev'] = rsv.get('rev', req.src_rev)
+                    d['req'] = request.reqid
+                    d['rst'] = request.state.name
+                    return d
 
         # no new request then check last accepted: (TODO remove duplicate code here and loop above)
-        rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('accepted',), req_type='submit' )
-	rqlist.sort()
-	rqlist.reverse()
+        rqlist = osc.core.get_request_list(self.service, self.project, package, '', req_state=('accepted', ), req_type='submit')
+        rqlist.sort()
+        rqlist.reverse()
         for request in rqlist:
-          #print "REQ %s %s" % (request.reqid,request.state.name)
-          for req in request.actions:
-	    #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
-            if req.src_package == package:
-                # now look for the revision in the history to figure out the version
-                # ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
-                rsv = self.request_source_version( req, package )
-		d['prj'] = req.src_project
-		d['ver'] = rsv.get( 'ver', req.src_project )
-		d['rev'] = rsv.get( 'rev', req.src_rev )
-		d['req'] = request.reqid
-		#d['rst'] = ''
-                return d
+            #print "REQ %s %s" % (request.reqid,request.state.name)
+            for req in request.actions:
+                #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
+                if req.src_package == package:
+                    # now look for the revision in the history to figure out the version
+                    # ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
+                    rsv = self.request_source_version(req, package)
+                    d['prj'] = req.src_project
+                    d['ver'] = rsv.get('ver', req.src_project)
+                    d['rev'] = rsv.get('rev', req.src_rev)
+                    d['req'] = request.reqid
+                    #d['rst'] = ''
+                    return d
         return d
 
-    def request_source_version( self, req, package ):
-	"""Try to figure out the version of the submitted package.
-	Follow source links and IBS link to OBS via fake 'openSUSE.org:' project.
-	"""
-	ret = {}
-	versionQuality = ''
-	src_service = self.service
-	src_project = req.src_project
-	while True:
-	  # Follow IBS link to OBS via fake 'openSUSE.org:' project
-	  if ( src_service == 'https://api.suse.de' and src_project.startswith( 'openSUSE.org:' ) ):
-	      src_service = 'https://api.opensuse.org'
-	      src_project = src_project[13:]
+    def request_source_version(self, req, package):
+        """Try to figure out the version of the submitted package.
+        Follow source links and IBS link to OBS via fake 'openSUSE.org:' project.
+        """
+        ret = {}
+        versionQuality = ''
+        src_service = self.service
+        src_project = req.src_project
+        while True:
+            # Follow IBS link to OBS via fake 'openSUSE.org:' project
+            if (src_service == 'https://api.suse.de' and src_project.startswith('openSUSE.org:')):
+                src_service = 'https://api.opensuse.org'
+                src_project = src_project[13:]
 
-	  revisions = {}
-	  try:
-	      u = osc.core.makeurl(src_service, ['source', src_project, package, '_history'])
-	      #print "URL %s" % u
-	      f = osc.core.http_GET(u)
-	      root = ET.parse(f).getroot()
-	      revisions = root.findall('revision')
-	      revisions.reverse()
-	  except urllib2.HTTPError, e:
-	      print "Cannot get package info from: %s" % u
+            revisions = {}
+            try:
+                u = osc.core.makeurl(src_service, ['source', src_project, package, '_history'])
+                #print "URL %s" % u
+                f = osc.core.http_GET(u)
+                root = ET.parse(f).getroot()
+                revisions = root.findall('revision')
+                revisions.reverse()
+            except urllib2.HTTPError:
+                print "Cannot get package info from: %s" % u
 
-	  # maybe we can even figure out the version...
-	  for node in revisions:
-	      #print "  - n %s %s %s" % ( node.get('rev'), node.find('version').text, node.find('srcmd5').text )
-	      if versionQuality != '':
-		  # following a link we guess the 1st vresion.
-		  ret['ver'] = node.find('version').text
-		  break
-	      if node.get('rev') == req.src_rev:
-		  ret['ver'] = node.find('version').text
-		  break
-	      md5 = node.find('srcmd5')
-	      if md5 != None and md5.text == req.acceptinfo_srcmd5:
-		  ret['ver'] = node.find('version').text
-		  ret['rev'] = node.get('rev')		# the original source projects revision
-		  break
+            # maybe we can even figure out the version...
+            for node in revisions:
+                #print "  - n %s %s %s" % ( node.get('rev'), node.find('version').text, node.find('srcmd5').text )
+                if versionQuality != '':
+                    # following a link we guess the 1st vresion.
+                    ret['ver'] = node.find('version').text
+                    break
+                if node.get('rev') == req.src_rev:
+                    ret['ver'] = node.find('version').text
+                    break
+                md5 = node.find('srcmd5')
+                if md5 != None and md5.text == req.acceptinfo_srcmd5:
+                    ret['ver'] = node.find('version').text
+                    ret['rev'] = node.get('rev')		# the original source projects revision
+                    break
 
-	  if ret.has_key('ver') and ret['ver'] != 'unknown':
-	    break
+            if ('ver' in ret) and ret['ver'] != 'unknown':
+                break
 
-	  li = self.link_info(src_service, src_project, package)
-	  if not li or not li.islink():
-	    break
+            li = self.link_info(src_service, src_project, package)
+            if not li or not li.islink():
+                break
 
-	  src_project = li.project
-	  package = li.package
-	  versionQuality = ' (x-link)'
+            src_project = li.project
+            package = li.package
+            versionQuality = ' (x-link)'
 
-	if versionQuality != '':
-	    ret['ver'] += versionQuality
-	return ret
+        if versionQuality != '':
+            ret['ver'] += versionQuality
+        return ret
 
     def link_info(self, apiurl, prj, pac):
         m = osc.core.show_files_meta(apiurl, prj, pac)
@@ -745,12 +747,12 @@ class BuildServicePendingRequestsSource(PackageSource):
             return li
 
     def mtime(self, package):
-	return 0
+        return 0
 
     def changelog(self, package):
-	d = self.cacheVersion( package )
-	if d.has_key( 'prj' ) and d.has_key( 'rev' ):
-	  return self.get_project_source_file( d['prj'], package, "%s.changes" % package, d['rev'] )
+        d = self.cacheVersion(package)
+        if ('prj' in d) and ('rev' in d):
+            return self.get_project_source_file(d['prj'], package, "%s.changes" % package, d['rev'])
         return None
 
     def get_project_source_file(self, project, package, file, revision=None):
@@ -767,7 +769,7 @@ class BuildServicePendingRequestsSource(PackageSource):
 
         query = None
         if revision:
-            query = { 'rev': revision }
+            query = {'rev': revision}
         # workaround
         u = None
         if query:
@@ -778,17 +780,18 @@ class BuildServicePendingRequestsSource(PackageSource):
         try:
             f = osc.core.http_GET(u)
             return f.read()
-        except urllib2.HTTPError, e:
+        except urllib2.HTTPError:
             # ok may be it is a source link and this utterly sucks
             # but lets add some AI
             try:
                 li = self.link_info(self.service, self.project, package)
                 content = self.get_project_source_file(li.project, li.package, file, li.xsrcmd5)
                 return content
-            except urllib2.HTTPError, e:
-                 # now really give up
-                 print "Cannot get source file from: %s" % u
-                 exit(1)
+            except urllib2.HTTPError:
+                # now really give up
+                print "Cannot get source file from: %s" % u
+                exit(1)
+
 
 class GemSource(PackageSource):
     """
@@ -808,7 +811,7 @@ class GemSource(PackageSource):
         if self.gems == None:
             try:
                 self.gems = {}
-                if os.environ.has_key("OSC_RUBY_TEST"):
+                if "OSC_RUBY_TEST" in os.environ:
                     fd = open("/tmp/index")
                 else:
                     fd = urllib2.urlopen("http://%s/quick/index" % self.gemserver)
@@ -817,7 +820,7 @@ class GemSource(PackageSource):
                     for line in fd:
                         name, version = line.strip().rsplit('-', 1)
                         self.gems["rubygem-%s" % name] = version
-            except urllib2.HTTPError, e:
+            except urllib2.HTTPError:
                 raise Exception('Cannot get upstream gem index')
             except IOError:
                 raise Exception('Cannot get local index')
@@ -855,8 +858,10 @@ class FreshmeatSource(PackageSource):
         for c in string:
             try:
                 c = int(c)
-                try: r[-1] = r[-1] * 10 + c
-                except: r.append(c)
+                try:
+                    r[-1] = r[-1] * 10 + c
+                except:
+                    r.append(c)
             except:
                 r.append(c)
         return r
@@ -874,7 +879,7 @@ class FreshmeatSource(PackageSource):
                 version = a.string
                 versions.append(version)
                 pass
-        except urllib2.HTTPError, e:
+        except urllib2.HTTPError:
             raise Exception('Cannot retrieve project information from freshmeat.net for %s' % package)
         except Exception:
             raise Exception('Unexpected error while fetching project information from fresheat.net for %s: %s' % (package, sys.exc_info()[0]))
@@ -914,6 +919,5 @@ def createSourceFromUrl(url):
         except ImportError:
             raise "Unsupported source type %s: you must install the package python-beautifulsoup first" % kind
         return CachedSource(FreshmeatSource())
-
 
     raise "Unsupported source type %s" % url
