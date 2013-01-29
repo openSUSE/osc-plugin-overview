@@ -10,6 +10,7 @@ try:
     from xml.etree import cElementTree as ET
 except ImportError:
     import cElementTree as ET
+import progressbar
 
 # if (rpm.labelCompare((None, version, '1'), (None, bsver, '1')) == 1) :
 
@@ -251,8 +252,13 @@ class View:
                 # resolve the packages list or macro
                 pkgopt = config.get(view, 'packages')
                 self.packages = oscpluginoverview.sources.evalMacro(self.repos, self.data, pkgopt, blacklist)
-            expect = len(self.packages) * len(self.repos)
-            for package in self.packages:
+            widgets = [progressbar.Percentage(),
+                    ' ', progressbar.Bar(), ' ', progressbar.FormatLabel("")]
+            progress = progressbar.ProgressBar(widgets=widgets, maxval=len(self.packages))
+            progress.start()
+            for i, package in enumerate(self.packages):
+                widgets[4] = progressbar.FormatLabel('{0}'.format(package))
+                progress.update(i)
                 row = []
                 # append the package name, then we add the versions
                 row.append(package)
@@ -279,10 +285,6 @@ class View:
                         version = self.data[repo].version(package)
                     else:
                         version = None
-
-                    sys.stdout.write("[%d]{%s/%s}" % (expect, repo, package))
-                    sys.stdout.flush()
-                    expect -= 1
 
                     self.setVersionForPackage(repo, package, version)
 
@@ -315,7 +317,7 @@ class View:
                 # append to the filter if it should not be shown
                 if not showrow:
                     self.filter.append(package)
-            sys.stdout.write( "\n" )
+            progress.finish()
         else:
             print "No repos defined for %s" % view
             return
