@@ -16,6 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import string, sys
+from osc import cmdln
+
 #from oscpluginoverview import texttable
 
 def _changes(self, group):
