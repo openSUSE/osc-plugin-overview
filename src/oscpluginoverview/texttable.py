@@ -27,7 +27,7 @@ Example:
     table.add_rows([ ["Name", "Age", "Nickname"],
                      ["Mr\\nXavier\\nHuon", 32, "Xav'"],
                      ["Mr\\nBaptiste\\nClement", 1, "Baby"] ])
-    print table.draw()
+    print(table.draw())
 
 Result:
 
@@ -516,4 +516,4 @@ if __name__ == '__main__':
     table.add_rows([ ["Name", "Age", "Nickname"],
                      ["Mr\nXavier\nHuon", 32, "Xav'"],
                      ["Mr\nBaptiste\nClement", 1, "Baby"] ])
-    print table.draw()
+    print(table.draw())

@@ -26,11 +26,11 @@ def diff_strings(oldstr, newstr):
                 raise Exception("diff returned error: %d" % code)
             return output
         except:
-            print "Can't execute diff: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])
+            print("Can't execute diff: %s %s" % (sys.exc_info()[0], sys.exc_info()[1]))
             #raw_input("pause")
             exit(1)
     except:
-        print "problem opening tempfile: %s %s" % (sys.exc_info()[0], sys.exc_info()[1])
+        print("problem opening tempfile: %s %s" % (sys.exc_info()[0], sys.exc_info()[1]))
         exit(1)
     else:
         file_new.close()

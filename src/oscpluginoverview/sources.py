@@ -56,7 +56,7 @@ class View:
         self.versions_rev[package][repo] = version
 
     def printTable(self):
-        #print ",".join(self.filter)
+        #print(",".join(self.filter))
         from oscpluginoverview.texttable import Texttable
         table = Texttable()
         table.set_color(self.colorize)
@@ -108,9 +108,9 @@ class View:
         #packages = oscpluginoverview.sources.evalPackages(repos, data, pkgopt)
         table.add_rows(rows)
         if self.config.has_option(self.name, 'nopackages'):
-            print table.colorize_text('M', "(blacklisted: %s)" % self.config.get(self.name, 'nopackages'))
-        print table.colorize_text('M',"** %s ** " % self.name)
-        print table.draw()
+            print(table.colorize_text('M', "(blacklisted: %s)" % self.config.get(self.name, 'nopackages')))
+        print(table.colorize_text('M',"** %s ** " % self.name))
+        print(table.draw())
         print
 
     def packageCompare(self, package, x, y):
@@ -218,12 +218,12 @@ class View:
         return self.changelog
 
     def printChangelog(self):
-        print self.changelogDiff()
+        print(self.changelogDiff())
         pass
 
     def printPatchinfo(self):
         import oscpluginoverview.patchinfo
-        print oscpluginoverview.patchinfo.patchinfo_from_changelog(self.changelogDiff(), self.repos, self.changelog_packages)
+        print(oscpluginoverview.patchinfo.patchinfo_from_changelog(self.changelogDiff(), self.repos, self.changelog_packages))
 
     def readConfig(self):
         config = self.config
@@ -294,7 +294,7 @@ class View:
                 if config.has_option(view, 'filter.older'):
                     oldfilterrepos = oscpluginoverview.sources.evalMacro(self.repos, self.data, blacklist)
                     if len(oldfilterrepos) != 1:
-                        print "Only one source can be used as base for old filter"
+                        print("Only one source can be used as base for old filter")
                         exit(1)
                     else:
                         oldfilterrepo = oldfilterrepos[0]
@@ -319,7 +319,7 @@ class View:
                     self.filter.append(package)
             progress.finish()
         else:
-            print "No repos defined for %s" % view
+            print("No repos defined for %s" % view)
             return
 
 def evalMacro(repos, data, expr, blacklist):
@@ -342,7 +342,7 @@ def evalMacro(repos, data, expr, blacklist):
             from string import atoi
             column = atoi(matches[0])
             if len(repos) < column:
-                print "Can't use repo #%d, not enough repos" % column
+                print("Can't use repo #%d, not enough repos" % column)
                 exit(1)
             repo = repos[column - 1]
             ret.append(repo)
@@ -351,12 +351,12 @@ def evalMacro(repos, data, expr, blacklist):
             from string import atoi
             column = atoi(matches[0])
             if len(repos) < column:
-                print "Can't use repo #%d package list, not enough repos" % column
+                print("Can't use repo #%d package list, not enough repos" % column)
                 exit(1)
             repo = repos[column - 1]
             packages = data[repo].packages()
             if len(packages) == 0:
-                print "No packages defined for $s" % view
+                print("No packages defined for $s" % view)
                 exit(1)
             ret.extend(packages)
         else:
@@ -488,7 +488,7 @@ class BuildServiceSource(PackageSource):
         try:
             return self.get_source_file(package, "%s.changes" % package)
         except Exception, e:
-            print e
+            print(e)
             return None
 
     def mtime(self, package):
@@ -641,9 +641,9 @@ class BuildServicePendingRequestsSource(PackageSource):
         rqlist.sort()
         rqlist.reverse()
         for request in rqlist:
-            #print "REQ %s %s" % (request.reqid,request.state.name)
+            #print("REQ %s %s" % (request.reqid,request.state.name))
             for req in request.actions:
-                #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
+                #print("  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5))
                 if req.src_package == package:
                     # now look for the revision in the history to figure out the version
                     # ret = "rev %s\n#%s (%s)" % (req.src_rev,request.reqid,request.state.name)
@@ -660,9 +660,9 @@ class BuildServicePendingRequestsSource(PackageSource):
         rqlist.sort()
         rqlist.reverse()
         for request in rqlist:
-            #print "REQ %s %s" % (request.reqid,request.state.name)
+            #print("REQ %s %s" % (request.reqid,request.state.name))
             for req in request.actions:
-                #print "  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5)
+                #print("  A %s %s %s %s %s" % (req.type,req.src_project,req.tgt_project,req.src_rev,req.acceptinfo_srcmd5))
                 if req.src_package == package:
                     # now look for the revision in the history to figure out the version
                     # ret = "rev %s\n#%s" % (req.src_rev,request.reqid)
@@ -692,17 +692,17 @@ class BuildServicePendingRequestsSource(PackageSource):
             revisions = {}
             try:
                 u = osc.core.makeurl(src_service, ['source', src_project, package, '_history'])
-                #print "URL %s" % u
+                #print("URL %s" % u)
                 f = osc.core.http_GET(u)
                 root = ET.parse(f).getroot()
                 revisions = root.findall('revision')
                 revisions.reverse()
             except urllib2.HTTPError:
-                print "Cannot get package info from: %s" % u
+                print("Cannot get package info from: %s" % u)
 
             # maybe we can even figure out the version...
             for node in revisions:
-                #print "  - n %s %s %s" % ( node.get('rev'), node.find('version').text, node.find('srcmd5').text )
+                #print("  - n %s %s %s" % ( node.get('rev'), node.find('version').text, node.find('srcmd5').text ))
                 if versionQuality != '':
                     # following a link we guess the 1st vresion.
                     ret['ver'] = node.find('version').text
@@ -791,7 +791,7 @@ class BuildServicePendingRequestsSource(PackageSource):
                 return content
             except urllib2.HTTPError:
                 # now really give up
-                print "Cannot get source file from: %s" % u
+                print("Cannot get source file from: %s" % u)
                 exit(1)
 
 
@@ -827,7 +827,7 @@ class GemSource(PackageSource):
             except IOError:
                 raise Exception('Cannot get local index')
             except Exception:
-            #print e
+            #print(e)
                 raise Exception("Unexpected error: %s" % sys.exc_info()[0])
 
     def packages(self):
@@ -900,7 +900,7 @@ def createSourceFromUrl(url):
     try:
         kind, name = url.split('://')
     except ValueError:
-        print "invalid origin format: %s" % url
+        print("invalid origin format: %s" % url)
         exit(1)
 
     if kind == "obs" or kind == "ibs" or kind == "ibssr" or kind == "obssr":

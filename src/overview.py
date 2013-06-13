@@ -86,7 +86,7 @@ def do_overview(self, subcmd, opts, *args):
 
     """
     if not os.path.exists(os.path.expanduser("~/.osc-overview")):
-        print "Drop your views in ~/.osc-overview"
+        print("Drop your views in ~/.osc-overview")
         exit(1)
 
     sys.path.append(os.path.expanduser('~/.osc-plugins'))
@@ -111,16 +111,16 @@ def do_overview(self, subcmd, opts, *args):
     from oscpluginoverview.sources import GemSource, BuildServiceSource, BuildServicePendingRequestsSource
 
     #gems = GemSource("foo")
-    #print gems.packages()
-    #print gems.version('rubygem-hpricot')
+    #print(gems.packages())
+    #print(gems.version('rubygem-hpricot'))
     #obs = BuildServiceSource('http://api.opensuse.org', 'zypp:Head')
-    #print obs.changelog('libzypp')
-    #print obs.packages()
-    #print obs.version('libzypp')
+    #print(obs.changelog('libzypp'))
+    #print(obs.packages())
+    #print(obs.version('libzypp'))
 
     #reqs = BuildServicePendingRequestsSource('http://api.opensuse.org', 'openSUSE:Factory')
-    #print reqs.packages()
-    #print reqs.version("patch")
+    #print(reqs.packages())
+    #print(reqs.version("patch"))
 
     self._overview(cmd, opts)
 
