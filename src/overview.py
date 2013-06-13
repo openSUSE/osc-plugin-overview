@@ -34,10 +34,10 @@ def _overview(self, group, opts):
     config.read(os.path.expanduser("~/.osc-overview/%s.ini" % group ))
 
     for secname in config.sections():
-	if ( opts.color ):
-	    config.set( secname, 'color', 'True' )
-	if ( opts.no_color ):
-	    config.set( secname, 'color', 'False' )
+        if ( opts.color ):
+            config.set( secname, 'color', 'True' )
+        if ( opts.no_color ):
+            config.set( secname, 'color', 'False' )
 
         view = oscpluginoverview.sources.View(secname, config)
         view.readConfig()
@@ -54,9 +54,9 @@ def _overview(self, group, opts):
 @cmdln.option('-p', '--patchinfo', action='store_true',
               help='Also output repo patchinfo file')
 @cmdln.option('', '--color', action='store_true',
-	      help='Colorize the output')
+              help='Colorize the output')
 @cmdln.option('', '--no-color', action='store_true',
-	      help='Don not colorize the output')
+              help='Don not colorize the output')
 
 
 def do_overview(self, subcmd, opts, *args):
