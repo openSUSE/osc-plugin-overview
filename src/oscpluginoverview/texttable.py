@@ -13,8 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """module for creating simple ASCII tables
 
@@ -27,7 +26,7 @@ Example:
     table.add_rows([ ["Name", "Age", "Nickname"],
                      ["Mr\\nXavier\\nHuon", 32, "Xav'"],
                      ["Mr\\nBaptiste\\nClement", 1, "Baby"] ])
-    print table.draw()
+    print(table.draw())
 
 Result:
 
@@ -516,4 +515,4 @@ if __name__ == '__main__':
     table.add_rows([ ["Name", "Age", "Nickname"],
                      ["Mr\nXavier\nHuon", 32, "Xav'"],
                      ["Mr\nBaptiste\nClement", 1, "Baby"] ])
-    print table.draw()
+    print(table.draw())

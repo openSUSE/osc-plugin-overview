@@ -6,16 +6,18 @@
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,# but WITHOUT ANY WARRANTY; without even the implied warranty of
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import string, sys
+from osc import cmdln
+
 #from oscpluginoverview import texttable
 
 def _changes(self, group):
@@ -34,10 +36,10 @@ def _overview(self, group, opts):
     config.read(os.path.expanduser("~/.osc-overview/%s.ini" % group ))
 
     for secname in config.sections():
-	if ( opts.color ):
-	    config.set( secname, 'color', 'True' )
-	if ( opts.no_color ):
-	    config.set( secname, 'color', 'False' )
+        if ( opts.color ):
+            config.set( secname, 'color', 'True' )
+        if ( opts.no_color ):
+            config.set( secname, 'color', 'False' )
 
         view = oscpluginoverview.sources.View(secname, config)
         view.readConfig()
@@ -54,9 +56,9 @@ def _overview(self, group, opts):
 @cmdln.option('-p', '--patchinfo', action='store_true',
               help='Also output repo patchinfo file')
 @cmdln.option('', '--color', action='store_true',
-	      help='Colorize the output')
+              help='Colorize the output')
 @cmdln.option('', '--no-color', action='store_true',
-	      help='Don not colorize the output')
+              help='Don not colorize the output')
 
 
 def do_overview(self, subcmd, opts, *args):
@@ -86,7 +88,7 @@ def do_overview(self, subcmd, opts, *args):
 
     """
     if not os.path.exists(os.path.expanduser("~/.osc-overview")):
-        print "Drop your views in ~/.osc-overview"
+        print("Drop your views in ~/.osc-overview")
         exit(1)
 
     sys.path.append(os.path.expanduser('~/.osc-plugins'))
@@ -111,16 +113,16 @@ def do_overview(self, subcmd, opts, *args):
     from oscpluginoverview.sources import GemSource, BuildServiceSource, BuildServicePendingRequestsSource
 
     #gems = GemSource("foo")
-    #print gems.packages()
-    #print gems.version('rubygem-hpricot')
+    #print(gems.packages())
+    #print(gems.version('rubygem-hpricot'))
     #obs = BuildServiceSource('http://api.opensuse.org', 'zypp:Head')
-    #print obs.changelog('libzypp')
-    #print obs.packages()
-    #print obs.version('libzypp')
+    #print(obs.changelog('libzypp'))
+    #print(obs.packages())
+    #print(obs.version('libzypp'))
 
     #reqs = BuildServicePendingRequestsSource('http://api.opensuse.org', 'openSUSE:Factory')
-    #print reqs.packages()
-    #print reqs.version("patch")
+    #print(reqs.packages())
+    #print(reqs.version("patch"))
 
     self._overview(cmd, opts)
 
