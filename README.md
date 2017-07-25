@@ -9,7 +9,7 @@ Overview plugin allows you to build a table comparing versions in different sour
 
 You can install from [openSUSE:Tools](https://software.opensuse.org/download/package?project=openSUSE:Tools&package=osc-plugin-overview).
 
-# Controbuting
+# Contributing
 
 Development is hosted on [github](https://github.com/openSUSE/osc-plugin-overview).
 
