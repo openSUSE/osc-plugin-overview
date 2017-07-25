@@ -18,8 +18,7 @@
 import os
 import sys
 from osc import cmdln
-
-#from oscpluginoverview import texttable
+from osc import oscerr
 
 def _changes(self, group):
     #https://api.opensuse.org/source/zypp:Head/libzypp/libzypp.changes
